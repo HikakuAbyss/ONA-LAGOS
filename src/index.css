@@ -1,0 +1,324 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Cormorant Garamond", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-gold-50: #FCFAF7;
+  --color-gold-100: #F7F4ED;
+  --color-gold-200: #EBE8E0;
+  --color-gold-300: #DDD9D0;
+  --color-gold-400: #C2B9AC;
+  --color-gold-500: #A89C8F;
+  --color-gold-600: #8E8274;
+  --color-gold-700: #706558;
+  --color-gold-800: #544C42;
+  --color-gold-900: #3E3831;
+  --color-gold-950: #292520;
+  
+  --color-bronze-300: #C3B9A9;
+  --color-bronze-400: #A89C8F;
+  --color-bronze-500: #8E8274;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    background-color: #F7F4ED;
+    color: #292520;
+    -webkit-font-smoothing: antialiased;
+  }
+  
+  body {
+    overflow-x: hidden;
+    background-color: #F7F4ED;
+    color: #292520;
+  }
+
+  ::selection {
+    background-color: #A89C8F;
+    color: #FCFAF7;
+  }
+
+  /* Custom scrollbar for an editorial feel */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #F7F4ED;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #EBE8E0;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #A89C8F;
+  }
+}
+
+/* Luxury card and border lighting effects */
+.luxury-border {
+  border: 1px solid rgba(142, 130, 116, 0.22);
+}
+
+.luxury-glow {
+  box-shadow: 0 4px 30px rgba(84, 76, 66, 0.04);
+}
+
+.gold-gradient {
+  background: linear-gradient(135deg, #EBE8E0 0%, #A89C8F 50%, #706558 100%);
+}
+
+.gold-text-gradient {
+  background: linear-gradient(135deg, #8E8274 0%, #544C42 50%, #292520 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ==========================================================================
+   REFINED GREY & BEIGE LUXURY SYSTEM (COMPREHENSIVE COLOR ENGINE OVERRIDES)
+   ========================================================================== */
+
+/* 1. COMPREHENSIVE BACKGROUND REMAPPING (BEIGE CAMPAIGN) */
+
+/* Global canvas and container resets */
+html, body {
+  background-color: #FAF6F0 !important;
+  color: #4A3518 !important;
+}
+
+/* Match raw classes and arbitrary text background parameters */
+.bg-\[\#050505\],
+.bg-\[\#0d0d0d\],
+.bg-black,
+.bg-zinc-950,
+.bg-neutral-950,
+[class*="bg-[#050505]"],
+[class*="bg-[#0d0d0d]"],
+[class*="bg-black"],
+[class*="bg-zinc-950"],
+[class*="bg-neutral-950"] {
+  background-color: #FAF6F0 !important;
+}
+
+/* Alt sections and mid-tone panels mapped to soft warm sand/stone grey */
+.bg-\[\#070707\], 
+.bg-\[\#080808\], 
+.bg-\[\#090909\], 
+.bg-\[\#0a0a0a\],
+.bg-[#0a0a0a],
+.bg-neutral-900\/50,
+.dark\:bg-zinc-900\/50,
+[class*="bg-[#070707]"],
+[class*="bg-[#080808]"],
+[class*="bg-[#090909]"],
+[class*="bg-[#0a0a0a]"],
+[class*="bg-[#0b0805]"],
+[class*="bg-neutral-900"],
+[class*="bg-zinc-900/50"] {
+  background-color: #F0ECE3 !important; /* Soft sand or muted stone grey */
+}
+
+/* Elevated container units (cards, input boxes, modal drawers, tables) mapped to off-white/warm cream */
+.bg-\[\#0c0c0c\], 
+.bg-\[\#0e0e0e\], 
+.bg-\[\#0f0f0f\], 
+.bg-\[\#141414\], 
+.bg-zinc-900,
+[class*="bg-[#0c0c0c]"],
+[class*="bg-[#0e0e0e]"],
+[class*="bg-[#0f0f0f]"],
+[class*="bg-[#141414]"],
+[class*="bg-zinc-900"] {
+  background-color: #FCFAF5 !important; /* Beautiful pure warm ivory white */
+  border-color: rgba(142, 130, 116, 0.2) !important;
+}
+
+/* Master Footer styled in rich warm clay beige so it anchors the pages beautifully */
+#master-footer,
+[id="master-footer"],
+footer[class*="bg-"] {
+  background-color: #EBE3D5 !important;
+  border-top: 1px solid rgba(142, 130, 116, 0.25) !important;
+}
+
+/* Set footer text to deep gold chocolate for extreme elite readability */
+#master-footer,
+#master-footer *,
+#master-footer h3,
+#master-footer svg,
+#master-footer p,
+#master-footer span,
+#master-footer a {
+  color: #4A3518 !important;
+}
+
+/* Navigation bar in scroll/blur state adjusted to ivory wash */
+#master-navigation,
+[id="master-navigation"] {
+  background-color: rgba(250, 246, 240, 0.94) !important;
+  border-bottom: 1px solid rgba(142, 130, 116, 0.2) !important;
+}
+
+/* 2. RE-TINT ALL TEXT ELEMENTS TO READABLE CHIC NOUVEAU LUXURY GOLD */
+
+/* Primary Headers & Light text mapped to Rich Deep Gold-Chocolate */
+.text-white,
+.text-\[\#fbf9f4\],
+.text-neutral-50,
+.text-neutral-100,
+.text-neutral-200,
+.text-gray-100,
+.text-gray-200,
+.text-zinc-100,
+h1, h2, h3, h4, h5, h6, 
+h1 *, h2 *, h3 *, h4 *, h5 *, h6 *,
+.font-serif,
+[class*="text-white"],
+[class*="text-[#fbf9f4]"] {
+  color: #4A3518 !important; /* Deep antique cacao gold */
+}
+
+/* Secondary headers and mid-tier body text mapped to Elegant Warm Taupe Gold */
+.text-gray-300,
+.text-zinc-300,
+.text-stone-300,
+[class*="text-gray-300"],
+[class*="text-zinc-300"],
+[class*="text-stone-300"] {
+  color: #6B4E33 !important; /* Rich nutty chocolate gold */
+}
+
+/* Tertiary muted texts mapped to Muted Brass/Sand */
+.text-gray-400,
+.text-zinc-400,
+.text-stone-400,
+[class*="text-gray-400"],
+[class*="text-zinc-400"],
+[class*="text-stone-400"] {
+  color: #8C6D4F !important; /* Heritage clay gold */
+}
+
+.text-gray-500,
+.text-zinc-500,
+.text-stone-500,
+[class*="text-gray-500"],
+[class*="text-zinc-500"],
+[class*="text-stone-500"] {
+  color: #A08264 !important; /* Medium sandy gold */
+}
+
+/* Bright styling accents keep their luxury gold pigment */
+.text-gold-200 { color: #8E704C !important; }
+.text-gold-300 { color: #A88258 !important; }
+.text-gold-400 { color: #C5A070 !important; }
+.text-gold-500 { color: #B58F5C !important; }
+
+/* Border conversions */
+.border-white\/5,
+.border-white\/10,
+.border-neutral-800,
+.border-zinc-800,
+.border-\[\#1d1d1d\] {
+  border-color: rgba(142, 130, 116, 0.12) !important;
+}
+.border-gold-400\/10,
+.border-gold-400\/20,
+.border-gold-300\/10,
+.border-gold-300\/15,
+.border-gold-300\/20,
+.border-gold-400\/25,
+.border-gold-400\/30 {
+  border-color: rgba(142, 130, 116, 0.22) !important;
+}
+
+/* Form input styling adjusted to new clean neutral system */
+input, textarea, select {
+  background-color: #FCFAF7 !important;
+  color: #4A3518 !important;
+  border-color: rgba(142, 130, 116, 0.25) !important;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: #A89C8F !important;
+  box-shadow: 0 0 0 1px rgba(168, 156, 143, 0.2) !important;
+}
+input::placeholder, textarea::placeholder {
+  color: #C5A070 !important;
+  opacity: 0.65;
+}
+
+/* PREMIUM UTILITY BUTTON ACTIONS (Beige/Taupe fills, soft borders, clean text) */
+.bg-gold-500,
+[class*="bg-gold-500"],
+[class*="bg-gold-600"] {
+  background-color: #EBE8E0 !important; /* Elegant Soft Sand/Beige fill */
+  color: #4A3518 !important; /* Beautiful deep gold-chocolate text */
+  border: 1px solid rgba(142, 130, 116, 0.35) !important;
+}
+.bg-gold-500:hover,
+[class*="bg-gold-500"]:hover,
+[class*="bg-gold-600"]:hover {
+  background-color: #DDD9D0 !important; /* Subtle hover sand */
+  color: #292520 !important;
+}
+button[class*="bg-gold-500"] span,
+button[class*="bg-gold-500"] svg,
+button[class*="bg-gold-600"] span,
+button[class*="bg-gold-600"] svg,
+.bg-gold-500 *,
+[class*="bg-gold-500"] *,
+[class*="bg-gold-600"] * {
+  color: #4A3518 !important;
+}
+
+/* Transform dark semi-transparent black overlays to elegant light-beige/ivory blurs */
+[class*="bg-black/60"],
+[class*="bg-black/40"],
+[class*="bg-black/75"],
+[class*="bg-black/80"],
+[class*="bg-black/85"],
+[class*="bg-black/95"],
+[class*="bg-black/90"] {
+  background-color: rgba(250, 246, 240, 0.75) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+/* Inline card backdrops */
+.bg-white\/5 {
+  background-color: rgba(168, 156, 143, 0.08) !important;
+}
+.hover\:bg-white\/5:hover {
+  background-color: rgba(168, 156, 143, 0.12) !important;
+}
+
+/* Floating widgets matching */
+#explore-legacy-fab {
+  background-color: #A89C8F !important;
+}
+#explore-legacy-fab svg {
+  color: #FCFAF7 !important;
+}
+
+/* Transform dark and black gradients to soft lux beige washes */
+.bg-gradient-to-t,
+.bg-gradient-to-r,
+.bg-gradient-to-b,
+[class*="bg-gradient-to-"] {
+  background-image: linear-gradient(to top, #FAF6F0, #EBE8E0) !important;
+}
+
+/* Ensure any explicit grad direction overrides are kept warm */
+[class*="from-black"],
+[class*="to-black"],
+[class*="via-[#0d0a07]"],
+[class*="from-[#050505]"],
+[class*="to-[#050505]"],
+[class*="from-[#0d0a07]"],
+[class*="to-[#0d0a07]"] {
+  --tw-gradient-from: #FAF6F0 !important;
+  --tw-gradient-to: #EBE8E0 !important;
+  background-color: #FAF6F0 !important;
+}
+

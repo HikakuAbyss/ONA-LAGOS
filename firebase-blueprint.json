@@ -1,0 +1,154 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account registration with role-based access control.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Equal to authenticating Firebase Auth UID" },
+        "name": { "type": "string", "description": "The user's full name" },
+        "email": { "type": "string", "format": "email", "description": "Primary email address" },
+        "role": { "type": "string", "enum": ["Super Admin", "Admin", "Staff", "User"] },
+        "status": { "type": "string", "enum": ["Active", "Suspended"] },
+        "addedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "email", "role", "status", "addedAt"]
+    },
+    "MenuItem": {
+      "title": "Menu Item",
+      "description": "Item of fine cuisine details.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "string" },
+        "categories": { "type": "array" },
+        "dietary": { "type": "object" },
+        "image": { "type": "string" }
+      },
+      "required": ["id", "name", "price", "categories"]
+    },
+    "GalleryItem": {
+      "title": "Gallery Item",
+      "description": "Image within the photography showcase.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string" },
+        "title": { "type": "string" },
+        "image": { "type": "string" }
+      },
+      "required": ["id", "category", "title", "image"]
+    },
+    "EventEnquiry": {
+      "title": "Event Enquiry",
+      "description": "Enquiry for private dining, celebrations, and shoots.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "date": { "type": "string" },
+        "guests": { "type": "integer" },
+        "type": { "type": "string" },
+        "status": { "type": "string" },
+        "details": { "type": "string" },
+        "internalNotes": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "date", "type", "status"]
+    },
+    "ContactMessage": {
+      "title": "Contact Message",
+      "description": "Inbox feedback, compliments, or private queries.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "date": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "subject", "message", "date", "status"]
+    },
+    "AdminSettings": {
+      "title": "Admin Settings",
+      "description": "Operational configurations of the house.",
+      "type": "object",
+      "properties": {
+        "reservationAppLink": { "type": "string" },
+        "whatsappNumber": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "emailAddress": { "type": "string" },
+        "physicalAddress": { "type": "string" },
+        "instagramLink": { "type": "string" },
+        "googleMapsEmbed": { "type": "string" },
+        "heroHeadline": { "type": "string" },
+        "heroSub": { "type": "string" }
+      },
+      "required": ["reservationAppLink"]
+    },
+    "OnaLifestyleProduct": {
+      "title": "Ona Lifestyle Product",
+      "description": "Curated lifestyle pieces and merchandise for luxury retail.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "category": { "type": "string", "enum": ["Merchandise", "Food Product", "Drink Product", "Gift Item", "Home & Lifestyle", "Limited Edition", "Other"] },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "galleryImages": { "type": "array" },
+        "price": { "type": "number" },
+        "discountPrice": { "type": "number" },
+        "stockStatus": { "type": "string", "enum": ["In Stock", "Low Stock", "Out of Stock", "Preorder"] },
+        "quantityAvailable": { "type": "number" },
+        "featured": { "type": "boolean" },
+        "publishStatus": { "type": "string", "enum": ["Draft", "Published", "Unpublished"] },
+        "displayOrder": { "type": "number" },
+        "tags": { "type": "array" },
+        "ctaType": { "type": "string", "enum": ["Order via WhatsApp", "Enquire Now", "Coming Soon", "View Details"] },
+        "ctaLink": { "type": "string" },
+        "seoTitle": { "type": "string" },
+        "seoDescription": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "category", "price", "stockStatus", "publishStatus", "ctaType"]
+    }
+  },
+  "firestore": {
+    "/onaLifestyleProducts/{productId}": {
+      "schema": "OnaLifestyleProduct",
+      "description": "Bespoke Ona Lifestyle items collection."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Store user accounts with specific RBAC role allocations."
+    },
+    "/menu_items/{itemId}": {
+      "schema": "MenuItem",
+      "description": "Dynamic digital menu of Ona Lagos."
+    },
+    "/gallery_items/{itemId}": {
+      "schema": "GalleryItem",
+      "description": "Bespoke gallery collection showcase."
+    },
+    "/event_enquiries/{enquiryId}": {
+      "schema": "EventEnquiry",
+      "description": "Private event applications and shoot request registrations."
+    },
+    "/contact_messages/{messageId}": {
+      "schema": "ContactMessage",
+      "description": "Direct communication letters."
+    },
+    "admin_settings/operational": {
+      "schema": "AdminSettings",
+      "description": "Global settings parameters."
+    }
+  }
+}

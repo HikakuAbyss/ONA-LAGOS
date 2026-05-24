@@ -1,0 +1,191 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      // Allow during development or if provider is configured
+      return request.auth.token.email_verified == true;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Checking roles securely via get/exists lookup
+    function isUserInRole(uid, role) {
+      return exists(/databases/$(database)/documents/users/$(uid)) &&
+             get(/databases/$(database)/documents/users/$(uid)).data.role == role;
+    }
+
+    function isBootstrappedSuperAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == "officialdananj@gmail.com" ||
+        request.auth.token.email == "officialdiodan@gmail.com"
+      );
+    }
+
+    function isSuperAdmin() {
+      return isBootstrappedSuperAdmin() || (isSignedIn() && isUserInRole(request.auth.uid, "Super Admin"));
+    }
+
+    function isAdmin() {
+      return isSuperAdmin() || (isSignedIn() && (
+        isUserInRole(request.auth.uid, "Admin") ||
+        isUserInRole(request.auth.uid, "Super Admin")
+      ));
+    }
+
+    function isStaff() {
+      return isAdmin() || (isSignedIn() && (
+        isUserInRole(request.auth.uid, "Staff") ||
+        isUserInRole(request.auth.uid, "Manager") ||
+        isUserInRole(request.auth.uid, "Content Editor") ||
+        isUserInRole(request.auth.uid, "Reservation Staff")
+      ));
+    }
+
+    // Entity validations
+    function isValidUser(user) {
+      return user.id is string &&
+             user.name is string && user.name.size() <= 150 &&
+             user.email is string && user.email.size() <= 150 &&
+             user.role in ["Super Admin", "Admin", "Staff", "User", "Manager", "Content Editor", "Reservation Staff"] &&
+             user.status in ["Active", "Suspended"];
+    }
+
+    function isValidMenuItem(item) {
+      return item.id is string &&
+             item.name is string && item.name.size() <= 150 &&
+             item.price is string && item.price.size() <= 50;
+    }
+
+    function isValidGalleryItem(pic) {
+      return pic.id is string &&
+             pic.title is string && pic.title.size() <= 150 &&
+             pic.image is string && pic.image.size() <= 2000;
+    }
+
+    function isValidEnquiry(enq) {
+      return enq.id is string &&
+             enq.name is string && enq.name.size() <= 150 &&
+             enq.email is string && enq.email.size() <= 150;
+    }
+
+    function isValidContactMessage(msg) {
+      return msg.id is string &&
+             msg.name is string && msg.name.size() <= 150 &&
+             msg.email is string && msg.email.size() <= 150 &&
+             msg.subject is string && msg.subject.size() <= 250 &&
+             msg.message is string && msg.message.size() <= 5000;
+    }
+
+    function isValidOnaLifestyleProduct(item) {
+      return item.id is string &&
+             item.name is string && item.name.size() <= 150 &&
+             item.category in ["Merchandise", "Food Product", "Drink Product", "Gift Item", "Home & Lifestyle", "Limited Edition", "Other"] &&
+             item.publishStatus in ["Draft", "Published", "Unpublished"];
+    }
+
+    // 1. Users Collection rules
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      
+      // Allow creation of first profile or self-signup
+      allow create: if isSignedIn() && (
+        request.auth.uid == userId && 
+        isValidUser(incoming()) && (
+          // Prevent self-privilege-escalation of roles: unless they are the bootstrapped admin
+          incoming().role == "User" || isBootstrappedSuperAdmin()
+        )
+      );
+
+      // Allow modifications by self (only editing non-role fields) or full edit by Admins
+      allow update: if isSignedIn() && (
+        (request.auth.uid == userId && isValidUser(incoming()) && (
+          // Prevent role/status modifications by normal self
+          incoming().role == existing().role &&
+          incoming().status == existing().status
+        )) ||
+        (isAdmin() && isValidUser(incoming()))
+      );
+
+      allow delete: if isSuperAdmin();
+    }
+
+    // 2. Menu Items rules
+    match /menu_items/{itemId} {
+      allow read: if true; // Publicly accessible to read
+      allow create: if isAdmin() && isValidMenuItem(incoming());
+      allow update: if isAdmin() && isValidMenuItem(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // 3. Gallery Items rules
+    match /gallery_items/{itemId} {
+      allow read: if true; // Publicly accessible to view
+      allow create: if isStaff() && isValidGalleryItem(incoming());
+      allow update: if isStaff() && isValidGalleryItem(incoming());
+      allow delete: if isStaff();
+    }
+
+    // 4. Event Enquiries rules
+    match /event_enquiries/{enquiryId} {
+      allow read: if isStaff(); // Staff can review private dining and movie shoots
+      allow write: if isStaff(); 
+      allow create: if true; // External users can submit inquiries
+    }
+
+    // 5. Contact info messages rules
+    match /contact_messages/{messageId} {
+      allow read: if isStaff(); // Staff can check mailbox
+      allow write: if isStaff();
+      allow create: if true; // Guest users can submit letters
+    }
+
+    // 6. Admin Settings rules
+    match /admin_settings/{settingsId} {
+      allow read: if true; // Operational configurations are readable to present public coordinates
+      allow write: if isAdmin();
+    }
+
+    // 7. Reservations rules
+    match /reservations/{resId} {
+      allow read: if isStaff();
+      allow create: if true; // Public guests can book tables
+      allow update: if isStaff(); // Staff can cancel/confirm bookings
+      allow delete: if isAdmin();
+    }
+
+    // 8. Testimonials rules
+    match /testimonials/{testId} {
+      allow read: if true; // Public reviews stream
+      allow write: if isStaff();
+    }
+
+    // 9. Ona Lifestyle Products rules
+    match /onaLifestyleProducts/{productId} {
+      allow read: if true; // Publicly visible to browse
+      allow write: if isAdmin() && isValidOnaLifestyleProduct(incoming());
+      allow delete: if isAdmin();
+    }
+  }
+}
