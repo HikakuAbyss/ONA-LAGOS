@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Menu, X, Phone, CalendarRange } from "lucide-react";
+import { Menu, X, CalendarRange } from "lucide-react";
 
 interface NavbarProps {
   currentTab: string;
@@ -19,8 +19,7 @@ export default function Navbar({ currentTab, setCurrentTab, onOpenReservation, c
     { id: "kids-dietary", label: "Family & Dietary" },
     { id: "ona-lifestyle", label: "Lifestyle" },
     { id: "events", label: "Private Events" },
-    { id: "gallery", label: "Gallery" },
-    { id: "contact", label: "Contact & Hours" }
+    { id: "gallery", label: "Gallery" }
   ];
 
   useEffect(() => {
@@ -93,13 +92,6 @@ export default function Navbar({ currentTab, setCurrentTab, onOpenReservation, c
 
           {/* Desktop Call/Reserve Buttons */}
           <div className="hidden lg:flex items-center space-x-4">
-            <a
-              href="tel:+2348000ONALAGOS"
-              className="text-gray-500 hover:text-gold-300 transition-colors flex items-center gap-1.5 focus:outline-none"
-            >
-              <Phone className="w-4 h-4" />
-              <span className="font-sans text-xs tracking-wider font-light">+234 (0) 90 ONA LAGOS</span>
-            </a>
             <button
               onClick={onOpenReservation}
               className="cursor-pointer bg-transparent hover:bg-gold-500/10 border border-gold-400 text-gold-300 hover:text-[#4a3518] font-sans text-xs uppercase tracking-[0.18em] py-2.5 px-5 transition-all duration-300"
@@ -179,12 +171,6 @@ export default function Navbar({ currentTab, setCurrentTab, onOpenReservation, c
             >
               Book Table
             </button>
-            <a
-              href="tel:+2348000ONALAGOS"
-              className="text-gray-500 text-center hover:text-gold-600 block text-xs font-light"
-            >
-              +234 (0) 90 ONA LAGOS
-            </a>
           </div>
         </div>
       </header>
