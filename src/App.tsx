@@ -56,6 +56,9 @@ import { convexClient } from "./convexClient";
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<string>("home");
+  const [isGuestSession, setIsGuestSession] = useState<boolean>(() => {
+    return localStorage.getItem("ona_guest_session") === "true";
+  });
   const [cms, setCms] = useState<any>(() => {
     const saved = localStorage.getItem("ona_mock_cms_config");
     return saved ? JSON.parse(saved) : DEFAULT_CMS;
@@ -164,6 +167,13 @@ export default function App() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [currentTab]);
+
+  // Welcome Gate Auto-Trigger Control
+  useEffect(() => {
+    if (!initialLoading && !currentUser && !isGuestSession) {
+      setAuthModalOpen(true);
+    }
+  }, [initialLoading, currentUser, isGuestSession]);
 
   // Subscribe to Authentication State
   useEffect(() => {
@@ -418,6 +428,8 @@ export default function App() {
               onClick={async () => {
                 localStorage.removeItem("ona_mock_user");
                 localStorage.removeItem("ona_mock_role");
+                localStorage.removeItem("ona_guest_session");
+                setIsGuestSession(false);
                 try {
                   await signOut(auth);
                 } catch (e) {
@@ -802,6 +814,12 @@ export default function App() {
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
+        isForceWelcome={!currentUser && !isGuestSession}
+        onContinueAsGuest={() => {
+          setIsGuestSession(true);
+          localStorage.setItem("ona_guest_session", "true");
+          setAuthModalOpen(false);
+        }}
         onAuthSuccess={(fbUser, role) => {
           setCurrentUser(fbUser);
           setUserRole(role);

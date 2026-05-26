@@ -9,13 +9,18 @@ import {
   Chrome,
   AlertCircle,
   CheckCircle2,
-  LockKeyhole
+  LockKeyhole,
+  Compass,
+  ArrowRight,
+  ShieldCheck,
+  ChevronRight
 } from "lucide-react";
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInWithPopup,
-  GoogleAuthProvider
+  GoogleAuthProvider,
+  sendPasswordResetEmail
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
@@ -24,10 +29,20 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAuthSuccess: (user: any, role: string) => void;
+  isForceWelcome?: boolean;
+  onContinueAsGuest?: () => void;
 }
 
-export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalProps) {
+export default function AuthModal({
+  isOpen,
+  onClose,
+  onAuthSuccess,
+  isForceWelcome = false,
+  onContinueAsGuest
+}: AuthModalProps) {
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -35,6 +50,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
 
   const bootstrappedEmails = ["officialdananj@gmail.com", "officialdiodan@gmail.com"];
 
@@ -59,7 +75,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
     const userRef = doc(db, "users", fbUser.uid);
     let assignedRole = "User";
 
-    // Auto-promote bootstrapped email as Super Admin
     if (fbUser.email && bootstrappedEmails.includes(fbUser.email.trim().toLowerCase())) {
       assignedRole = "Super Admin";
     }
@@ -73,7 +88,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
         }
         return existingData.role || "User";
       } else {
-        // Create new user profile in secure database
         const profileObj = {
           id: fbUser.uid,
           name: fullName || fbUser.displayName || fbUser.email?.split("@")[0] || "Guest patron",
@@ -86,7 +100,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
         return assignedRole;
       }
     } catch (e: any) {
-      // Fallback for missing database permissions during setup
       console.warn("Firestore syncing error, using client persistence fallback:", e);
       return assignedRole;
     }
@@ -100,7 +113,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
 
     const checkEmail = email.trim().toLowerCase();
 
-    // INTERCEPT: Demo / Frontend Preview Login
+    // INTERCEPT: Demo / Preview Login
     if (checkEmail === "admin@gmail.com") {
       if (password === "admin1234") {
         const mockUser = {
@@ -126,7 +139,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
       }
     }
 
-    // Intercept: Local Mock Users registration and login
     const savedMockUsers = localStorage.getItem("ona_mock_users_db");
     const usersList = savedMockUsers ? JSON.parse(savedMockUsers) : [];
 
@@ -137,7 +149,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
         return;
       }
 
-      // Check if email already registered in mock DB
       const existing = usersList.find((u: any) => u.email === checkEmail);
       if (existing) {
         setError("This email address is already registered.");
@@ -145,7 +156,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
         return;
       }
 
-      // Save to mock users DB
       const newUser = {
         fullName,
         email: checkEmail,
@@ -172,7 +182,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
         setLoading(false);
       }, 1200);
     } else {
-      // Find in mock database
       const matched = usersList.find((u: any) => u.email === checkEmail && u.password === password);
       if (matched) {
         const mockUser = {
@@ -193,7 +202,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
         return;
       }
 
-      // Fallback for real firebase users
       try {
         const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
         const fbUser = userCredential.user;
@@ -235,6 +243,38 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
     }
   };
 
+  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccessMsg("");
+    
+    if (!email.trim()) {
+      setError("Please provide your email address to recover credentials.");
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      setSuccessMsg("Reset instructions dispatched! Please check your email inbox.");
+      setTimeout(() => {
+        setIsForgotPassword(false);
+        setSuccessMsg("");
+      }, 5000);
+    } catch (e: any) {
+      console.error(e);
+      if (e.code === "auth/user-not-found") {
+        setError("No account associated with this email was found.");
+      } else if (e.code === "auth/invalid-email") {
+        setError("Please enter a valid email address.");
+      } else {
+        setError(e.message || "Failed to transmit password reset instructions.");
+      }
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -245,202 +285,289 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="absolute inset-0 bg-black/80 backdrop-blur-md"
+          onClick={!isForceWelcome ? onClose : undefined}
+          className="absolute inset-0 bg-[#050505]/85 backdrop-blur-md"
         />
 
-        {/* Modal Window */}
+        {/* Dual-Column Modal Wrapper Card */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          transition={{ type: "spring", damping: 25, stiffness: 350 }}
-          className="relative w-full max-w-md bg-[#0b0b0b] border border-gold-400/20 text-[#fbf9f4] p-8 overflow-hidden rounded-none shadow-[0_10px_50px_rgba(181,137,75,0.15)] z-10"
+          transition={{ type: "spring", damping: 26, stiffness: 300 }}
+          className="relative w-full max-w-4xl bg-[#0b0b0b] border border-gold-400/20 text-[#fbf9f4] overflow-hidden rounded-md shadow-2xl z-10 md:grid md:grid-cols-12 max-h-[92vh] md:h-[620px] flex flex-col"
         >
-          {/* Scent Leaf Aesthetic background glow */}
-          <div className="absolute top-0 right-0 w-44 h-44 bg-gold-400/5 blur-3xl rounded-full pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-44 h-44 bg-gold-300/3 blur-3xl rounded-full pointer-events-none" />
+          {/* Aesthetic background glows */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-gold-400/5 blur-3xl rounded-full pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-gold-300/3 blur-3xl rounded-full pointer-events-none" />
 
-          {/* Close Trigger */}
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 text-gray-500 hover:text-gold-300 transition-colors p-1"
-            aria-label="Close credentials screen"
-          >
-            <X className="w-5 h-5" />
-          </button>
-
-          {/* Heading Logo */}
-          <div className="text-center space-y-2 mb-8 mt-2">
-            <h3 className="font-serif text-2xl tracking-[0.2em] font-light">
-              ONA<span className="text-gold-400 font-sans text-xs align-super ml-0.5 font-normal">SOCIETY</span>
-            </h3>
-            <p className="font-sans text-xs text-gray-400 font-light">
-              {isSignUp
-                ? "Register below to secure fine dining, private requests, and reservation leads."
-                : "Credential Gateway for members, hosts, and sommeliers."}
-            </p>
-          </div>
-
-          {/* Standard Status Indicators */}
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 text-xs flex items-start gap-2 mb-6"
-            >
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{error}</span>
-            </motion.div>
-          )}
-
-          {successMsg && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 text-xs flex items-center gap-2 mb-6 font-serif italic"
-            >
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-              <span>{successMsg}</span>
-            </motion.div>
-          )}
-
-          {/* Demo Admin Quick Access Indicator Box */}
-          <div className="mb-6 p-4 bg-gold-400/5 border border-gold-400/20 text-left">
-            <div className="flex items-center gap-1.5 text-gold-300 font-serif text-xs mb-1 uppercase tracking-widest font-normal">
-              <Sparkles className="w-3.5 h-3.5 text-gold-400" />
-              <span>Frontend Preview Login</span>
-            </div>
-            <p className="font-sans text-[11px] text-gray-400 font-light leading-relaxed mb-3">
-              This application has real-time offline persistence capability. Gain unrestricted admin customizer access instantly by using the credentials below:
-            </p>
-            <div className="space-y-1 font-mono text-[10px] text-gray-300 mb-3 bg-black/40 p-2.5 border border-white/5">
-              <div>Email: <span className="text-gold-400">admin@gmail.com</span></div>
-              <div>Password: <span className="text-gold-400">admin1234</span></div>
-            </div>
+          {/* Close trigger - Hides completely if forced onboarding welcome is active */}
+          {!isForceWelcome && (
             <button
-              onClick={() => {
-                setEmail("admin@gmail.com");
-                setPassword("admin1234");
-                setIsSignUp(false);
-              }}
-              type="button"
-              className="w-full bg-[#181818] border border-gold-400/30 hover:bg-[#222] text-gold-300 text-[10px] uppercase tracking-widest py-1.5 transition-colors cursor-pointer text-center font-sans font-medium"
+              onClick={onClose}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gold-300 transition-colors p-1.5 border border-white/5 bg-black/40 hover:bg-black rounded-full cursor-pointer z-20"
+              aria-label="Close welcome screen"
             >
-              Autofill Demo Credentials
+              <X className="w-4 h-4" />
             </button>
-          </div>
+          )}
 
-          {/* Formal Form Submit */}
-          <form onSubmit={handleEmailAuth} className="space-y-4">
-            {isSignUp && (
-              <div className="space-y-1.5 text-left">
-                <label className="block font-sans text-[10px] uppercase tracking-widest text-gold-300 font-medium">
-                  Full Name
-                </label>
-                <div className="relative">
-                  <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
-                  <input
-                    required
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. Chief Adeleke Williams"
-                    className="w-full bg-black/60 border border-white/10 py-2.5 pl-10 pr-4 text-xs focus:outline-none focus:border-gold-400 text-[#fbf9f4] placeholder:text-gray-600 transition-colors"
-                  />
+          {/* COLUMN 1: CINEMATIC WELCOME ONBOARDING (Left 5-cols on desktop) */}
+          <div className="md:col-span-5 hidden md:flex flex-col justify-between p-8 bg-gradient-to-b from-[#1c140c] via-[#0b0b0b] to-[#120e0a] relative overflow-hidden h-full border-r border-gold-400/10">
+            {/* Background image draping the layout inside */}
+            <div className="absolute inset-0 opacity-20 bg-cover bg-center pointer-events-none mix-blend-overlay" style={{ backgroundImage: `url('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&auto=format&fit=crop&q=80')` }} />
+            
+            <div className="space-y-6 relative z-10 text-left">
+              <div className="space-y-1">
+                <span className="font-sans text-[10px] uppercase tracking-[0.3em] text-gold-400 font-semibold block">La Maison Ona</span>
+                <h2 className="font-serif text-3xl font-light text-white tracking-wide uppercase leading-tight">
+                  Ona Lagos
+                </h2>
+              </div>
+              <p className="font-sans text-xs text-gray-400 font-light leading-relaxed">
+                A high design fine-dining sanctuary in Victoria Island, Nigeria. Marrying sub-Saharan ancestral heritage with the high theater of modern gastronomy.
+              </p>
+              
+              {/* Premium Bullet Features list */}
+              <div className="space-y-4 pt-4 border-t border-gold-400/10 font-sans text-xs font-light text-gray-300">
+                <div className="flex items-start gap-2.5">
+                  <Sparkles className="w-4 h-4 text-gold-400 shrink-0 mt-0.5" />
+                  <span><strong>Society Curation</strong>: Secure private reservation vaults, custom heat profiles, and romantic cellars.</span>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <Compass className="w-4 h-4 text-gold-400 shrink-0 mt-0.5" />
+                  <span><strong>Lifestyle Catalog</strong>: Direct access to artisanal hand-carved mahogany boards and scent leaf candles.</span>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <ShieldCheck className="w-4 h-4 text-gold-400 shrink-0 mt-0.5" />
+                  <span><strong>SaaS CMS Manager</strong>: High-fidelity cosmetic customizers without touching code.</span>
                 </div>
               </div>
-            )}
-
-            <div className="space-y-1.5 text-left">
-              <label className="block font-sans text-[10px] uppercase tracking-widest text-gold-300 font-medium">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
-                <input
-                  required
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@onalagos.com"
-                  className="w-full bg-black/60 border border-white/10 py-2.5 pl-10 pr-4 text-xs focus:outline-none focus:border-gold-400 text-[#fbf9f4] placeholder:text-gray-600 transition-colorsAll"
-                />
-              </div>
             </div>
 
-            <div className="space-y-1.5 text-left">
-              <div className="flex justify-between items-center">
-                <label className="block font-sans text-[10px] uppercase tracking-widest text-gold-300 font-medium">
-                  Password
-                </label>
-              </div>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
-                <input
-                  required
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-black/60 border border-white/10 py-2.5 pl-10 pr-4 text-xs focus:outline-none focus:border-gold-400 text-[#fbf9f4] placeholder:text-gray-600 transition-colors"
-                />
-              </div>
+            {/* Quote details */}
+            <div className="relative z-10 text-left pt-6 border-t border-gold-400/10 font-serif italic text-xs text-gold-300/80 leading-relaxed font-light">
+              "Every detail meticulously forged to leave a lasting Edo mark upon your dining generation."
             </div>
+          </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full mt-2 cursor-pointer bg-gold-500 hover:bg-gold-600 disabled:bg-gold-800 disabled:text-gray-400 text-black py-3 font-sans text-xs uppercase tracking-widest font-semibold transition-all duration-300 active:scale-[0.98] flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(181,137,75,0.15)]"
-            >
-              {loading ? (
-                <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+          {/* COLUMN 2: PREMIUM AUTHENTICATION FORM (Right 7-cols on desktop) */}
+          <div className="md:col-span-7 flex flex-col justify-between p-8 overflow-y-auto w-full h-full relative z-10">
+            <div className="my-auto space-y-6">
+              {/* Title Header */}
+              <div className="text-center md:text-left space-y-1">
+                <h3 className="font-serif text-2xl tracking-[0.2em] font-light uppercase text-[#fbf9f4]">
+                  Ona <span className="text-gold-400 font-sans text-xs align-super ml-0.5 font-normal tracking-widest">Society</span>
+                </h3>
+                <p className="font-sans text-xs text-gray-400 font-light">
+                  {isForgotPassword 
+                    ? "Restore access to your secure portal."
+                    : isSignUp
+                      ? "Create account to access catalogs, reserves, and details."
+                      : "Credential Gateway for members, hosts, and sommeliers."
+                  }
+                </p>
+              </div>
+
+              {/* Status Feedbacks */}
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-red-500/10 border border-red-500/20 text-red-400 p-3.5 text-xs flex items-start gap-2 rounded-sm"
+                >
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{error}</span>
+                </motion.div>
+              )}
+
+              {successMsg && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3.5 text-xs flex items-center gap-2 rounded-sm font-serif italic"
+                >
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <span>{successMsg}</span>
+                </motion.div>
+              )}
+
+              {/* DYNAMIC FORMS MOUNT */}
+              {isForgotPassword ? (
+                /* FORGOT PASSWORD FORM */
+                <form onSubmit={handleForgotPasswordSubmit} className="space-y-4 text-left">
+                  <div className="space-y-1.5">
+                    <label className="block font-sans text-[10px] uppercase tracking-widest text-gold-300 font-semibold">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+                      <input
+                        required
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="name@onalagos.com"
+                        className="w-full bg-black/60 border border-white/10 py-2.5 pl-10 pr-4 text-xs focus:outline-none focus:border-gold-400 text-[#fbf9f4] placeholder:text-gray-600 transition-colors rounded-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                    <button
+                      type="submit"
+                      disabled={resetLoading}
+                      className="flex-1 cursor-pointer bg-gold-500 hover:bg-gold-600 disabled:bg-gold-800 disabled:text-gray-400 text-black py-3 font-sans text-xs uppercase tracking-widest font-semibold transition-all duration-300 flex items-center justify-center gap-2 rounded-sm shadow-md"
+                    >
+                      {resetLoading ? (
+                        <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <span>Send Instructions</span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsForgotPassword(false)}
+                      className="cursor-pointer bg-transparent border border-white/10 hover:border-gold-400 hover:text-white py-3 px-5 text-gray-400 text-xs font-sans uppercase tracking-wider transition-colors rounded-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
               ) : (
+                /* SIGN IN / SIGN UP FORM */
+                <form onSubmit={handleEmailAuth} className="space-y-4 text-left">
+                  {isSignUp && (
+                    <div className="space-y-1.5">
+                      <label className="block font-sans text-[10px] uppercase tracking-widest text-gold-300 font-semibold">
+                        Full Name
+                      </label>
+                      <div className="relative">
+                        <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+                        <input
+                          required
+                          type="text"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          placeholder="e.g. Chief Adeleke Williams"
+                          className="w-full bg-black/60 border border-white/10 py-2.5 pl-10 pr-4 text-xs focus:outline-none focus:border-gold-400 text-[#fbf9f4] placeholder:text-gray-600 transition-colors rounded-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    <label className="block font-sans text-[10px] uppercase tracking-widest text-gold-300 font-semibold">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+                      <input
+                        required
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="name@onalagos.com"
+                        className="w-full bg-black/60 border border-white/10 py-2.5 pl-10 pr-4 text-xs focus:outline-none focus:border-gold-400 text-[#fbf9f4] placeholder:text-gray-600 transition-colors rounded-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <label className="block font-sans text-[10px] uppercase tracking-widest text-gold-300 font-semibold">
+                        Password
+                      </label>
+                      {!isSignUp && (
+                        <button
+                          type="button"
+                          onClick={() => { setIsForgotPassword(true); setError(""); }}
+                          className="font-sans text-[10px] text-gold-300 hover:text-white cursor-pointer hover:underline underline-offset-2 transition-colors focus:outline-none"
+                        >
+                          Forgot Password?
+                        </button>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+                      <input
+                        required
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full bg-black/60 border border-white/10 py-2.5 pl-10 pr-4 text-xs focus:outline-none focus:border-gold-400 text-[#fbf9f4] placeholder:text-gray-600 transition-colors rounded-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full mt-2 cursor-pointer bg-gold-500 hover:bg-gold-600 disabled:bg-gold-800 disabled:text-gray-400 text-black py-3.5 font-sans text-xs uppercase tracking-widest font-bold transition-all duration-300 flex items-center justify-center gap-2 rounded-sm shadow-[0_4px_15px_rgba(181,137,75,0.2)]"
+                  >
+                    {loading ? (
+                      <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <LockKeyhole className="w-3.5 h-3.5" />
+                        <span>{isSignUp ? "Create Account" : "Access Sanctuary"}</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+
+              {/* Social Login and Divider */}
+              {!isForgotPassword && (
                 <>
-                  <LockKeyhole className="w-3.5 h-3.5" />
-                  <span>{isSignUp ? "Create Account" : "Access Cabin"}</span>
+                  <div className="relative my-5 text-center">
+                    <span className="absolute inset-x-0 top-1/2 h-[1px] bg-white/10" />
+                    <span className="relative bg-[#0b0b0b] px-3 font-sans text-[10px] uppercase tracking-[0.2em] text-gray-600 block w-max mx-auto">
+                      Or Social Credentials
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={handleGoogleSignIn}
+                    disabled={loading}
+                    className="w-full flex items-center justify-center gap-2.5 bg-black hover:bg-white/5 border border-white/10 py-2.5 text-xs font-sans tracking-wider hover:text-white transition-colors cursor-pointer rounded-sm font-semibold"
+                  >
+                    <Chrome className="w-4 h-4 text-gold-300" />
+                    <span>Sign in with Google Account</span>
+                  </button>
                 </>
               )}
-            </button>
-          </form>
 
-          {/* Divider */}
-          <div className="relative my-6 text-center">
-            <span className="absolute inset-x-0 top-1/2 h-[1px] bg-white/5" />
-            <span className="relative bg-[#0b0b0b] px-3 font-sans text-[10px] uppercase tracking-widest text-gray-600">
-              Or Social Credentials
-            </span>
-          </div>
+              {/* GUEST CURATION ACCELERATOR button */}
+              {isForceWelcome && onContinueAsGuest && (
+                <div className="pt-2">
+                  <button
+                    onClick={onContinueAsGuest}
+                    className="w-full text-center py-2.5 border border-dashed border-gold-400/20 hover:border-gold-400/60 bg-gold-400/5 hover:bg-gold-400/10 text-gold-300 text-xs font-sans uppercase tracking-[0.18em] transition-all cursor-pointer rounded-sm"
+                  >
+                    Continue as Guest &rarr;
+                  </button>
+                </div>
+              )}
+            </div>
 
-          {/* Google Sign-In */}
-          <button
-            onClick={handleGoogleSignIn}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-2.5 bg-black hover:bg-white/5 border border-white/10 py-2.5 text-xs font-sans tracking-wider hover:text-white transition-colors cursor-pointer"
-          >
-            <Chrome className="w-4 h-4 text-gold-300" />
-            <span>Sign in with Google Account</span>
-          </button>
-
-          {/* Toggle Gateway */}
-          <div className="mt-8 text-center">
-            <button
-              onClick={() => {
-                setIsSignUp(!isSignUp);
-                setError("");
-              }}
-              className="font-sans text-[11px] text-gray-500 hover:text-gold-300 cursor-pointer underline underline-offset-4 focus:outline-none transition-colors"
-            >
-              {isSignUp
-                ? "Already configured with credentials? Log In"
-                : "Don't have an Ona credential? Register for access"}
-            </button>
-          </div>
-
-          {/* Bootstrapped Super Admin Highlight */}
-          <div className="mt-6 pt-4 border-t border-white/5 text-center flex items-center justify-center gap-1.5 text-[10px] text-gold-400/50">
-            <Sparkles className="w-3 h-3" />
-            <span>Default Super-Admin mapping: officialdananj@gmail.com</span>
+            {/* Toggle Signin/Signup */}
+            {!isForgotPassword && (
+              <div className="mt-8 text-center border-t border-white/5 pt-4">
+                <button
+                  onClick={() => {
+                    setIsSignUp(!isSignUp);
+                    setError("");
+                  }}
+                  className="font-sans text-[11px] text-gray-500 hover:text-gold-300 cursor-pointer underline underline-offset-4 focus:outline-none transition-colors"
+                >
+                  {isSignUp
+                    ? "Already configured with credentials? Log In"
+                    : "Don't have an Ona credential? Register for access"}
+                </button>
+              </div>
+            )}
           </div>
         </motion.div>
       </div>
