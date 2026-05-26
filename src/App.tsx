@@ -773,35 +773,6 @@ export default function App() {
         />
       )}
 
-      {/* FLOATING REAL-TIME PREVIEW MODE SELECTOR CONTROL */}
-      {currentTab !== "admin" && (
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="fixed bottom-6 left-6 z-40 font-sans"
-        >
-          <div className="bg-[#12110E]/95 border border-[#CBBDA9]/30 px-4 py-2.5 rounded-sm shadow-xl flex items-center gap-4 backdrop-blur-md">
-            {!currentUser && (
-              <>
-                <button
-                  onClick={() => setAuthModalOpen(true)}
-                  className="text-[10px] text-gray-400 hover:text-white uppercase font-bold tracking-widest cursor-pointer hover:underline transition-all"
-                >
-                  Log In
-                </button>
-                <div className="h-4 w-[1px] bg-white/10" />
-              </>
-            )}
-            <button
-              onClick={() => handleTogglePreviewMode(previewMode === "draft" ? "published" : "draft")}
-              className="text-[10px] text-gold-300 hover:text-white uppercase font-bold tracking-widest cursor-pointer hover:underline transition-all"
-              title="Click to toggle between live published menu and real-time database draft preview"
-            >
-              Switch to {previewMode === "draft" ? "Live" : "Draft"}
-            </button>
-          </div>
-        </motion.div>
-      )}
 
       {/* CORE RESERVATION CONFIGURATOR DIALOG */}
       <ReservationModal
