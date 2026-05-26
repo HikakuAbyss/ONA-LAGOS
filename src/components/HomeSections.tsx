@@ -644,9 +644,6 @@ export default function HomeSections({
               Book Your Experience
             </button>
           </div>
-          <p className="text-[10px] text-gray-500 font-mono">
-            GATEWAY TARGET: {cms?.branding?.bookingDomain || "RESERVE.ONALAGOS.COM"}
-          </p>
         </div>
       </section>
     </>

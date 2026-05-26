@@ -67,7 +67,23 @@ export default function App() {
 
   // Convex Client hooks for CMS and User updates
   const convexCms = useQuery(api.settings.getByKey, { key: "cms_config" });
+  const convexOperationalSettings = useQuery(api.settings.getByKey, { key: "operational" });
   const upsertProfile = useMutation(api.users.upsertProfile);
+
+  const [operationalSettings, setOperationalSettings] = useState<any>(() => {
+    const saved = localStorage.getItem("ona_mock_operational_settings");
+    return saved ? JSON.parse(saved) : {
+      reservationAppLink: "https://reserve.onalagos.com",
+      whatsappNumber: "+234 90 6000 ONA",
+      phoneNumber: "+234 (0) 90 ONA LAGOS",
+      emailAddress: "concierge@onalagos.com",
+      physicalAddress: "14B Karimu Kotun St, Victoria Island, Lagos, Nigeria",
+      instagramLink: "https://instagram.com/ona_lagos",
+      googleMapsEmbed: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3964.730335029302!2d3.424367!3d6.428131!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x103b8b327b5bd519%3A0xeebd5bdcd53e9fde!2sKarimu%20Kotun%20St%2C%20Clifton%20Oasis!5e0!3m2!1sen!2sng!4v1700000000000",
+      heroHeadline: "Where Heritage Meets High Gastronomy",
+      heroSub: "An architectural masterwork of fine culture and sensory chemistry located in Victoria Island, Lagos."
+    };
+  });
 
   // Favicon, Title and Load Animation timer
   useEffect(() => {
@@ -121,6 +137,13 @@ export default function App() {
       window.removeEventListener("ona_cms_updated", handleCmsUpdateEvent);
     };
   }, [convexCms]);
+
+  useEffect(() => {
+    if (convexOperationalSettings && convexOperationalSettings.success && convexOperationalSettings.data) {
+      setOperationalSettings(convexOperationalSettings.data);
+      localStorage.setItem("ona_mock_operational_settings", JSON.stringify(convexOperationalSettings.data));
+    }
+  }, [convexOperationalSettings]);
 
   const [isReservationOpen, setIsReservationOpen] = useState(false);
   const [reservationType, setReservationType] = useState("Standard Dining");
@@ -741,7 +764,7 @@ export default function App() {
           <div className="max-w-7xl mx-auto px-6 md:px-12 mt-12 pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between text-[11px] text-gray-500 font-sans font-light gap-4">
             <p>© 2026 Ona Lagos Hospitality Ltd. Victoria Island, Lagos. All Rights Reserved.</p>
             <div className="flex gap-6 items-center">
-              <a href="https://reserve.onalagos.com" target="_blank" rel="noopener noreferrer" className="hover:text-gold-300">reserve.onalagos.com</a>
+              <button onClick={() => handleOpenReservation("Standard Dining")} className="hover:text-gold-300 cursor-pointer bg-transparent border-none p-0 text-gray-500 outline-none">Reserve a Table</button>
               <button onClick={() => setCurrentTab("contact")} className="hover:text-gold-300 cursor-pointer">Valet &amp; Directions</button>
               <button
                 onClick={() => {
@@ -779,6 +802,7 @@ export default function App() {
         isOpen={isReservationOpen}
         onClose={() => setIsReservationOpen(false)}
         initialType={reservationType}
+        whatsappNumber={operationalSettings?.whatsappNumber}
       />
 
       {/* DYNAMIC SIGN-IN & GATE CONTROL MODAL */}

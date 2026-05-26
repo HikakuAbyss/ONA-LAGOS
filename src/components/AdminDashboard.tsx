@@ -1999,22 +1999,24 @@ export default function AdminDashboard({ onSettingsUpdate, onCloseAdmin }: Admin
                   <div className="bg-[#FAF6F0] p-6 border border-[#CBBDA9]/30 text-left space-y-4 text-xs font-sans">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-stone-700">Reservation App Link Setting (*)</label>
+                        <label className="text-[10px] uppercase font-bold text-stone-700">Reservation App Link Setting (Bypassed)</label>
                         <input
+                          disabled
                           type="text"
-                          value={appSettings.reservationAppLink}
-                          onChange={(e) => setAppSettings({ ...appSettings, reservationAppLink: e.target.value })}
-                          className="w-full bg-white border border-[#CBBDA9] p-2 text-xs focus:outline-none"
+                          value="On-Site WhatsApp Flow Active"
+                          className="w-full bg-stone-100 border border-[#CBBDA9]/50 p-2 text-xs focus:outline-none text-stone-400 cursor-not-allowed"
                         />
+                        <p className="text-[9px] text-[#8C6D4F] mt-0.5">Bypassed in favor of the direct on-site WhatsApp booking flow.</p>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-stone-700">WhatsApp Dispatch Link</label>
+                        <label className="text-[10px] uppercase font-bold text-stone-700">WhatsApp Reservation Number</label>
                         <input
                           type="text"
                           value={appSettings.whatsappNumber}
                           onChange={(e) => setAppSettings({ ...appSettings, whatsappNumber: e.target.value })}
                           className="w-full bg-white border border-[#CBBDA9] p-2 text-xs focus:outline-none"
                         />
+                        <p className="text-[9px] text-[#8C6D4F] mt-0.5">Primary host line where all table bookings are routed (supports alphanumeric formatting, e.g. "+234 90 6000 ONA").</p>
                       </div>
                       <div className="space-y-1">
                         <label className="text-[10px] uppercase font-bold text-stone-700">Concierge Desk Voice</label>
