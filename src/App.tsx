@@ -768,17 +768,18 @@ export default function App() {
           animate={{ opacity: 1, y: 0 }}
           className="fixed bottom-6 left-6 z-40 font-sans"
         >
-          <div className="bg-[#12110E]/95 border border-[#CBBDA9]/30 px-4 py-2.5 rounded-sm shadow-xl flex items-center gap-3 backdrop-blur-md">
-            <div className="flex items-center gap-1.5">
-              <span className="relative flex h-2 w-2">
-                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${previewMode === "draft" ? "bg-amber-400" : "bg-emerald-400"}`}></span>
-                <span className={`relative inline-flex rounded-full h-2 w-2 ${previewMode === "draft" ? "bg-amber-500" : "bg-emerald-500"}`}></span>
-              </span>
-              <span className="text-[10px] text-gray-400 tracking-widest font-light uppercase">
-                {previewMode === "draft" ? "Draft Preview (Real-time)" : "Live Published"}
-              </span>
-            </div>
-            <div className="h-4 w-[1px] bg-white/10" />
+          <div className="bg-[#12110E]/95 border border-[#CBBDA9]/30 px-4 py-2.5 rounded-sm shadow-xl flex items-center gap-4 backdrop-blur-md">
+            {!currentUser && (
+              <>
+                <button
+                  onClick={() => setAuthModalOpen(true)}
+                  className="text-[10px] text-gray-400 hover:text-white uppercase font-bold tracking-widest cursor-pointer hover:underline transition-all"
+                >
+                  Log In
+                </button>
+                <div className="h-4 w-[1px] bg-white/10" />
+              </>
+            )}
             <button
               onClick={() => handleTogglePreviewMode(previewMode === "draft" ? "published" : "draft")}
               className="text-[10px] text-gold-300 hover:text-white uppercase font-bold tracking-widest cursor-pointer hover:underline transition-all"
