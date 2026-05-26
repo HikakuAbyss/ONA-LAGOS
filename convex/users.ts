@@ -158,3 +158,49 @@ export const deleteUser = mutation({
     }
   }
 });
+
+// 6. ADMIN MUTATION: Manually create a user profile (Super Admin & Admin only)
+export const createUser = mutation({
+  args: {
+    name: v.string(),
+    email: v.string(),
+    role: v.union(
+      v.literal("Super Admin"),
+      v.literal("Admin"),
+      v.literal("Manager"),
+      v.literal("Content Editor"),
+      v.literal("Reservation Staff"),
+      v.literal("User")
+    )
+  },
+  handler: async (ctx, args) => {
+    try {
+      await verifyUserRole(ctx, ["Super Admin", "Admin"]);
+      
+      const email = args.email.trim().toLowerCase();
+      // Check if user already exists
+      const existingUser = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", email))
+        .unique();
+
+      if (existingUser) {
+        throw new Error("Conflict: A user with this email address already exists.");
+      }
+
+      const timestamp = new Date().toISOString();
+      const newUserId = await ctx.db.insert("users", {
+        name: args.name,
+        email,
+        role: args.role,
+        status: "Active",
+        addedAt: timestamp
+      });
+
+      return formatSuccess(newUserId);
+    } catch (e: any) {
+      return formatError(e.message || "Failed to manually create user profile.");
+    }
+  }
+});
+

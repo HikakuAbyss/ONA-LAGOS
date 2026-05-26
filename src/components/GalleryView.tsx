@@ -2,31 +2,25 @@ import { useState, useEffect, MouseEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { GALLERY_ITEMS, GalleryItem } from "../types";
 import { Maximize2, X, ChevronLeft, ChevronRight, Eye } from "lucide-react";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 
 export default function GalleryView() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [activePhoto, setActivePhoto] = useState<number | null>(null);
   const [gallery, setGallery] = useState<GalleryItem[]>(GALLERY_ITEMS);
 
+  const convexGallery = useQuery(api.gallery.getItems);
+
   useEffect(() => {
-    const fetchGallery = async () => {
-      try {
-        const { collection, getDocs } = await import("firebase/firestore");
-        const { db } = await import("../firebase");
-        const snap = await getDocs(collection(db, "gallery_items"));
-        if (!snap.empty) {
-          const list: GalleryItem[] = [];
-          snap.forEach(doc => {
-            list.push(doc.data() as GalleryItem);
-          });
-          setGallery(list);
-        }
-      } catch (e) {
-        console.warn("Could not query dynamic gallery from Firestore:", e);
-      }
-    };
-    fetchGallery();
-  }, []);
+    if (convexGallery && convexGallery.success && convexGallery.data) {
+      const mapped = convexGallery.data.map((item: any) => ({
+        ...item,
+        id: item._id // Map _id to id for frontend compatibility
+      }));
+      setGallery(mapped);
+    }
+  }, [convexGallery]);
 
   const categories = [
     { id: "all", label: "All Spheres" },

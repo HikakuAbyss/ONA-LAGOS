@@ -34,8 +34,9 @@ import {
   Play,
   RotateCcw
 } from "lucide-react";
-import { db, handleFirestoreError, OperationType } from "../firebase";
-import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { convexClient } from "../convexClient";
 
 // High-fidelity TypeScript interface for entire visual CMS
 export interface CMSSettings {
@@ -296,6 +297,10 @@ interface WebsiteCustomizerProps {
 }
 
 export default function WebsiteCustomizer({ currentUser }: WebsiteCustomizerProps) {
+  // Convex Hooks
+  const convexCmsDraft = useQuery(api.settings.getByKey, { key: "cms_draft" });
+  const setSetting = useMutation(api.settings.setByKey);
+
   const [activeTab, setActiveTab] = useState<string>("branding");
   const [loading, setLoading] = useState<boolean>(true);
   const [settings, setSettings] = useState<CMSSettings>(DEFAULT_CMS);
@@ -413,12 +418,11 @@ export default function WebsiteCustomizer({ currentUser }: WebsiteCustomizerProp
     }
   };
 
-  // Load from DB
+  // Sync from Convex
   useEffect(() => {
-    const docRef = doc(db, "admin_settings", "cms_draft");
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data() as CMSSettings;
+    if (convexCmsDraft) {
+      if (convexCmsDraft.success && convexCmsDraft.data) {
+        const data = convexCmsDraft.data as CMSSettings;
         // Merge with DEFAULT_CMS to maintain safety
         const merged: CMSSettings = {
           ...DEFAULT_CMS,
@@ -446,24 +450,19 @@ export default function WebsiteCustomizer({ currentUser }: WebsiteCustomizerProp
         getPublishedFallback();
       }
       setLoading(false);
-    }, (error) => {
-      console.error("Error subscribing to cms_draft, fallback:", error);
-      getPublishedFallback();
-    });
-
-    return () => unsubscribe();
-  }, []);
+    }
+  }, [convexCmsDraft]);
 
   const getPublishedFallback = async () => {
     try {
-      const pubDoc = await getDoc(doc(db, "admin_settings", "cms_config"));
-      if (pubDoc.exists()) {
-        const d = pubDoc.data() as CMSSettings;
+      const pubRes = await convexClient.query(api.settings.getByKey, { key: "cms_config" });
+      if (pubRes && pubRes.success && pubRes.data) {
+        const d = pubRes.data as CMSSettings;
         setSettings(d);
         setOriginalSettings(d);
       } else {
         // Create initial draft
-        await setDoc(doc(db, "admin_settings", "cms_draft"), DEFAULT_CMS);
+        await setSetting({ key: "cms_draft", data: DEFAULT_CMS });
         setSettings(DEFAULT_CMS);
         setOriginalSettings(DEFAULT_CMS);
       }
@@ -489,13 +488,13 @@ export default function WebsiteCustomizer({ currentUser }: WebsiteCustomizerProp
   const handleSaveDraft = async () => {
     if (!canModify) return;
     try {
-      await setDoc(doc(db, "admin_settings", "cms_draft"), settings);
+      await setSetting({ key: "cms_draft", data: settings });
       // Synchronize locally in real-time
       localStorage.setItem("ona_mock_cms_draft", JSON.stringify(settings));
       setShowSaveDraftSuccess(true);
       setTimeout(() => setShowSaveDraftSuccess(false), 3000);
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, "admin_settings/cms_draft");
+      console.error(e);
     }
   };
 
@@ -503,9 +502,9 @@ export default function WebsiteCustomizer({ currentUser }: WebsiteCustomizerProp
     if (!canModify) return;
     try {
       // Save globally to active live config
-      await setDoc(doc(db, "admin_settings", "cms_config"), settings);
+      await setSetting({ key: "cms_config", data: settings });
       // Also save to draft pool to keep synced
-      await setDoc(doc(db, "admin_settings", "cms_draft"), settings);
+      await setSetting({ key: "cms_draft", data: settings });
       setOriginalSettings(settings);
       
       // Update local storage and dispatch update event for immediate live web rendering
@@ -515,7 +514,7 @@ export default function WebsiteCustomizer({ currentUser }: WebsiteCustomizerProp
       setShowPublishSuccess(true);
       setTimeout(() => setShowPublishSuccess(false), 3000);
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, "admin_settings/cms_config");
+      console.error(e);
     }
   };
 

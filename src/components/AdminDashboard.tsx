@@ -63,6 +63,11 @@ import {
   getDocs
 } from "firebase/firestore";
 
+// Convex Hooks & API
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+
+
 // Local Type Definitions for local or database mapping
 export type AdminRole = "Super Admin" | "Manager" | "Content Editor" | "Reservation Staff" | "User";
 
@@ -171,6 +176,110 @@ export default function AdminDashboard({ onSettingsUpdate, onCloseAdmin }: Admin
   // Check if Mock session is active
   const isMock = currentUser?.id === "demo_admin" || currentUser?.id?.startsWith("mock_") || !!localStorage.getItem("ona_mock_user");
 
+  // Convex React queries
+  const convexUsers = useQuery(api.users.list);
+  const convexMenu = useQuery(api.menu.getItems);
+  const convexGallery = useQuery(api.gallery.getItems);
+  const convexTestimonials = useQuery(api.testimonials.list);
+  const convexReservations = useQuery(api.reservations.list);
+  const convexEnquiries = useQuery(api.enquiries.list);
+  const convexMessages = useQuery(api.messages.list);
+  const convexSettings = useQuery(api.settings.getByKey, { key: "operational" });
+
+  // Convex React mutations
+  const convexCreateUser = useMutation(api.users.createUser);
+  const convexUpdateUserRole = useMutation(api.users.updateRole);
+  const convexUpdateUserStatus = useMutation(api.users.updateStatus);
+  const convexDeleteUser = useMutation(api.users.deleteUser);
+
+  const convexCreateMenuItem = useMutation(api.menu.createItem);
+  const convexUpdateMenuItem = useMutation(api.menu.updateItem);
+  const convexDeleteMenuItem = useMutation(api.menu.deleteItem);
+
+  const convexCreateGalleryItem = useMutation(api.gallery.createItem);
+  const convexUpdateGalleryItem = useMutation(api.gallery.updateItem);
+  const convexDeleteGalleryItem = useMutation(api.gallery.deleteItem);
+
+  const convexCreateTestimonial = useMutation(api.testimonials.create);
+  const convexDeleteTestimonial = useMutation(api.testimonials.deleteTestimonial);
+
+  const convexUpdateReservationStatus = useMutation(api.reservations.updateStatus);
+  const convexDeleteReservation = useMutation(api.reservations.deleteReservation);
+
+  const convexUpdateEnquiryStatus = useMutation(api.enquiries.updateStatus);
+  const convexDeleteEnquiry = useMutation(api.enquiries.deleteEnquiry);
+
+  const convexUpdateMessageStatus = useMutation(api.messages.updateStatus);
+  const convexDeleteMessage = useMutation(api.messages.deleteMessage);
+
+  const convexSetSetting = useMutation(api.settings.setByKey);
+
+  // Reactively sync Convex queries to the local state
+  useEffect(() => {
+    if (!isMock && convexUsers && convexUsers.success && convexUsers.data) {
+      setAdmins(convexUsers.data.map((u: any) => ({ ...u, id: u._id })));
+    }
+  }, [convexUsers, isMock]);
+
+  useEffect(() => {
+    if (!isMock && convexMenu && convexMenu.success && convexMenu.data) {
+      setMenuItems(convexMenu.data.map((m: any) => ({ ...m, id: m._id })));
+    }
+  }, [convexMenu, isMock]);
+
+  useEffect(() => {
+    if (!isMock && convexGallery && convexGallery.success && convexGallery.data) {
+      setGalleryItems(convexGallery.data.map((g: any) => ({ ...g, id: g._id })));
+    }
+  }, [convexGallery, isMock]);
+
+  useEffect(() => {
+    if (!isMock && convexTestimonials && convexTestimonials.success && convexTestimonials.data) {
+      setTestimonials(convexTestimonials.data.map((t: any) => ({ ...t, id: t._id })));
+    }
+  }, [convexTestimonials, isMock]);
+
+  useEffect(() => {
+    if (!isMock && convexReservations && convexReservations.success && convexReservations.data) {
+      setReservations(convexReservations.data.map((r: any) => ({ ...r, id: r._id })));
+    }
+  }, [convexReservations, isMock]);
+
+  useEffect(() => {
+    if (!isMock && convexEnquiries && convexEnquiries.success && convexEnquiries.data) {
+      const allEnqs = convexEnquiries.data;
+      const diningList = allEnqs.filter((e: any) => e.type !== "Movie Scene" && e.type !== "Commercial" && e.type !== "High Fashion" && e.type !== "Pre-Wedding");
+      const shootList = allEnqs.filter((e: any) => e.type === "Movie Scene" || e.type === "Commercial" || e.type === "High Fashion" || e.type === "Pre-Wedding");
+      
+      setPrivateDining(diningList.map((e: any) => ({ ...e, id: e._id })));
+      setMovieShoots(shootList.map((e: any) => ({
+        id: e._id,
+        producer: e.name,
+        company: e.company || "",
+        phone: e.phone,
+        email: e.email,
+        shootDate: e.date,
+        durationHours: e.durationHours || 4,
+        crewSize: e.guests,
+        shootType: e.type,
+        status: e.status,
+        description: e.details || ""
+      })));
+    }
+  }, [convexEnquiries, isMock]);
+
+  useEffect(() => {
+    if (!isMock && convexMessages && convexMessages.success && convexMessages.data) {
+      setMessages(convexMessages.data.map((m: any) => ({ ...m, id: m._id })));
+    }
+  }, [convexMessages, isMock]);
+
+  useEffect(() => {
+    if (!isMock && convexSettings && convexSettings.success && convexSettings.data) {
+      setAppSettings(convexSettings.data);
+    }
+  }, [convexSettings, isMock]);
+
   // WRAPPERS for persistent mockup writes
   const setDocWrapper = async (docRef: any, data: any) => {
     if (isMock) {
@@ -244,7 +353,74 @@ export default function AdminDashboard({ onSettingsUpdate, onCloseAdmin }: Admin
       }
       return;
     }
-    await setDoc(docRef, data);
+
+    const path = docRef._path?.segments || [];
+    const collectionName = path[0];
+    const docId = path[1];
+    if (!collectionName) return;
+
+    if (collectionName === "menu_items") {
+      if (docId && !docId.startsWith("menu_")) {
+        await convexUpdateMenuItem({
+          id: docId as any,
+          name: data.name,
+          description: data.description,
+          price: data.price,
+          categories: data.categories,
+          dietary: data.dietary,
+          image: data.image
+        });
+      } else {
+        await convexCreateMenuItem({
+          name: data.name,
+          description: data.description,
+          price: data.price,
+          categories: data.categories,
+          dietary: data.dietary,
+          image: data.image
+        });
+      }
+    } else if (collectionName === "users") {
+      if (docId && !docId.startsWith("staff_")) {
+        await convexUpdateUserRole({ userId: docId as any, role: data.role });
+        await convexUpdateUserStatus({ userId: docId as any, status: data.status });
+      } else {
+        await convexCreateUser({
+          name: data.name,
+          email: data.email,
+          role: data.role
+        });
+      }
+    } else if (collectionName === "testimonials") {
+      await convexCreateTestimonial({
+        name: data.name,
+        role: data.role,
+        comment: data.comment,
+        rating: data.rating
+      });
+    } else if (collectionName === "reservations") {
+      await convexUpdateReservationStatus({
+        id: docId as any,
+        status: data.status,
+        internalNotes: data.internalNotes
+      });
+    } else if (collectionName === "event_enquiries") {
+      await convexUpdateEnquiryStatus({
+        id: docId as any,
+        status: data.status,
+        internalNotes: data.internalNotes
+      });
+    } else if (collectionName === "contact_messages") {
+      await convexUpdateMessageStatus({
+        id: docId as any,
+        status: data.status
+      });
+    } else if (collectionName === "admin_settings" && docId === "operational") {
+      await convexSetSetting({
+        key: "operational",
+        data
+      });
+    }
   };
 
   const updateDocWrapper = async (docRef: any, data: any) => {
@@ -281,7 +457,37 @@ export default function AdminDashboard({ onSettingsUpdate, onCloseAdmin }: Admin
       }
       return;
     }
-    await updateDoc(docRef, data);
+
+    const path = docRef._path?.segments || [];
+    const collectionName = path[0];
+    const docId = path[1];
+    if (!collectionName || !docId) return;
+
+    if (collectionName === "users") {
+      if (data.role) {
+        await convexUpdateUserRole({ userId: docId as any, role: data.role });
+      }
+      if (data.status) {
+        await convexUpdateUserStatus({ userId: docId as any, status: data.status });
+      }
+    } else if (collectionName === "reservations") {
+      await convexUpdateReservationStatus({
+        id: docId as any,
+        status: data.status,
+        internalNotes: data.internalNotes
+      });
+    } else if (collectionName === "event_enquiries") {
+      await convexUpdateEnquiryStatus({
+        id: docId as any,
+        status: data.status,
+        internalNotes: data.internalNotes
+      });
+    } else if (collectionName === "contact_messages") {
+      await convexUpdateMessageStatus({
+        id: docId as any,
+        status: data.status
+      });
+    }
   };
 
   const deleteDocWrapper = async (docRef: any) => {
@@ -307,8 +513,21 @@ export default function AdminDashboard({ onSettingsUpdate, onCloseAdmin }: Admin
       }
       return;
     }
-    await deleteDoc(docRef);
+
+    const path = docRef._path?.segments || [];
+    const collectionName = path[0];
+    const docId = path[1];
+    if (!collectionName || !docId) return;
+
+    if (collectionName === "menu_items") {
+      await convexDeleteMenuItem({ id: docId as any });
+    } else if (collectionName === "users") {
+      await convexDeleteUser({ userId: docId as any });
+    } else if (collectionName === "testimonials") {
+      await convexDeleteTestimonial({ id: docId as any });
+    }
   };
+
 
   // Track Firebase/Mock auth state and sync workspace
   useEffect(() => {
@@ -502,176 +721,8 @@ export default function AdminDashboard({ onSettingsUpdate, onCloseAdmin }: Admin
 
       return;
     }
-
-    // Listen to users list
-    const unsubUsers = onSnapshot(collection(db, "users"), (snap) => {
-      const list: AdminUser[] = [];
-      snap.forEach(d => list.push(d.data() as AdminUser));
-      setAdmins(list);
-    }, (err) => handleFirestoreError(err, OperationType.LIST, "users"));
-
-    // Listen to menu items with dynamic auto-seeding if completely empty
-    const unsubMenu = onSnapshot(collection(db, "menu_items"), (snap) => {
-      const list: MenuItem[] = [];
-      snap.forEach(d => list.push(d.data() as MenuItem));
-      if (snap.empty) {
-        // Seed default items
-        import("../types").then(async (mod) => {
-          for (const item of mod.MENU_ITEMS) {
-            await setDoc(doc(db, "menu_items", item.id), item);
-          }
-        });
-      } else {
-        setMenuItems(list);
-      }
-    });
-
-    // Listen to gallery with static fallback seed
-    const unsubGallery = onSnapshot(collection(db, "gallery_items"), (snap) => {
-      const list: GalleryItem[] = [];
-      snap.forEach(d => list.push(d.data() as GalleryItem));
-      if (snap.empty) {
-        import("../types").then(async (mod) => {
-          for (const item of mod.GALLERY_ITEMS) {
-            await setDoc(doc(db, "gallery_items", item.id), item);
-          }
-        });
-      } else {
-        setGalleryItems(list);
-      }
-    });
-
-    // Listen to testimonials
-    const unsubTestimonials = onSnapshot(collection(db, "testimonials"), (snap) => {
-      const list: Testimonial[] = [];
-      snap.forEach(d => list.push(d.data() as Testimonial));
-      if (snap.empty) {
-        import("../types").then(async (mod) => {
-          for (const item of mod.TESTIMONIALS) {
-            // Ensure document id is clean
-            const docId = item.name.replace(/[^a-zA-Z0-9]/g, "_");
-            await setDoc(doc(db, "testimonials", docId), item);
-          }
-        });
-      } else {
-        setTestimonials(list);
-      }
-    });
-
-    // Listen to reservations
-    const unsubRes = onSnapshot(collection(db, "reservations"), (snap) => {
-      const list: ReservationEnquiry[] = [];
-      snap.forEach(d => list.push(d.data() as ReservationEnquiry));
-      if (snap.empty) {
-        const initialList: ReservationEnquiry[] = [
-          { id: "res_1", name: "Chief Adeleke Victor", email: "adeleke@lagosoil.com", phone: "+234 803 111 2222", date: "2026-06-11", time: "19:30", guests: 6, type: "Sunday Roast", status: "Confirmed", notes: "VIP table requested" },
-          { id: "res_2", name: "Dr. Michelle Williams", email: "michelle@embassy.org", phone: "+234 902 444 8888", date: "2026-06-12", time: "20:00", guests: 2, type: "Standard Dining", status: "Confirmed", notes: "Window seat overlooking courtyard" }
-        ];
-        initialList.forEach(item => setDoc(doc(db, "reservations", item.id), item));
-      } else {
-        setReservations(list);
-      }
-    });
-
-    // Listen to Event Dining enquiries
-    const unsubDining = onSnapshot(collection(db, "event_enquiries"), (snap) => {
-      const list: DiningEnquiry[] = [];
-      snap.forEach(d => {
-        const item = d.data();
-        if (item.type !== "Movie Scene" && item.type !== "Commercial" && item.type !== "High Fashion") {
-          list.push(item as DiningEnquiry);
-        }
-      });
-      if (snap.empty) {
-        const seedPrivate: DiningEnquiry[] = [
-          { id: "pvt_1", name: "Fatima Dangote", email: "fatima@dangote.com", phone: "+234 803 211 4444", date: "2026-06-18", guests: 18, type: "Corporate Gala", status: "Confirmed", details: "Exclusive sensory dining corporate celebrating. Security details arranged." }
-        ];
-        seedPrivate.forEach(item => setDoc(doc(db, "event_enquiries", item.id), item));
-      } else {
-        setPrivateDining(list);
-      }
-    });
-
-    // Listen to film/shoot requests inside event_enquiries
-    const unsubShoots = onSnapshot(collection(db, "event_enquiries"), (snap) => {
-      const list: MovieShootEnquiry[] = [];
-      snap.forEach(d => {
-        const item = d.data();
-        if (item.type === "Movie Scene" || item.type === "Commercial" || item.type === "High Fashion" || item.type === "Pre-Wedding") {
-          list.push({
-            id: item.id,
-            producer: item.name,
-            company: item.company || "Independent",
-            phone: item.phone,
-            email: item.email,
-            shootDate: item.date,
-            durationHours: item.duration || 4,
-            crewSize: item.guests || 10,
-            shootType: item.type as any,
-            status: item.status as any,
-            description: item.details || ""
-          });
-        }
-      });
-      if (snap.empty) {
-        const seedShoot: MovieShootEnquiry[] = [
-          { id: "sht_1", producer: "Funke Akindele", company: "SceneOne Productions", phone: "+234 803 999 8888", email: "funke@sceneone.tv", shootDate: "2026-06-25", durationHours: 6, crewSize: 35, shootType: "Movie Scene", status: "Approved", description: "Billionaire high-society sequence." }
-        ];
-        seedShoot.forEach(item => setDoc(doc(db, "event_enquiries", item.id), {
-          id: item.id,
-          name: item.producer,
-          company: item.company,
-          phone: item.phone,
-          email: item.email,
-          date: item.shootDate,
-          duration: item.durationHours,
-          guests: item.crewSize,
-          type: item.shootType,
-          status: item.status,
-          details: item.description
-        }));
-      } else {
-        setMovieShoots(list);
-      }
-    });
-
-    // Listen to contact messages
-    const unsubMsgs = onSnapshot(collection(db, "contact_messages"), (snap) => {
-      const list: ContactMessage[] = [];
-      snap.forEach(d => list.push(d.data() as ContactMessage));
-      if (snap.empty) {
-        const seedMsgs: ContactMessage[] = [
-          { id: "msg_1", name: "Chinedu Cole", email: "chinedu@vip.com", subject: "Pre-Booking Dom Pérignon cases", message: "Do you have case limits for Sundays?", date: "2026-05-23", status: "Unread" }
-        ];
-        seedMsgs.forEach(item => setDoc(doc(db, "contact_messages", item.id), item));
-      } else {
-        setMessages(list);
-      }
-    });
-
-    // Listen to opening hours and operational controls
-    const unsubSettings = onSnapshot(collection(db, "admin_settings"), (snap) => {
-      snap.forEach(d => {
-        if (d.id === "operational") {
-          setAppSettings(d.data() as any);
-        }
-      });
-      if (snap.empty) {
-        setDoc(doc(db, "admin_settings", "operational"), appSettings);
-      }
-    });
-
-    return () => {
-      unsubUsers();
-      unsubMenu();
-      unsubGallery();
-      unsubTestimonials();
-      unsubRes();
-      unsubDining();
-      unsubShoots();
-      unsubMsgs();
-      unsubSettings();
-    };
+    // Real Convex mode will be synced reactively by useQuery hooks at top level.
+    // No manual onSnapshot listeners needed here.
   }, [currentUser]);
 
   // Sign In Trigger via Firebase or Local Mock Auth

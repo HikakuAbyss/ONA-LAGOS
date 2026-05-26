@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { MENU_ITEMS, MenuItem } from "../types";
 import { Flame, Leaf, Snowflake, ShieldAlert, Sparkles, Filter, ChevronRight, X, CalendarCheck2 } from "lucide-react";
-import { doc, onSnapshot } from "firebase/firestore";
-import { db } from "../firebase";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 
 interface MenuViewProps {
   onOpenReservation: () => void;
@@ -30,59 +30,41 @@ export default function MenuView({ onOpenReservation }: MenuViewProps) {
     return () => window.removeEventListener("ona_preview_mode_changed", handlePreviewChange);
   }, []);
 
-  useEffect(() => {
-    // Read from draft or published document depending on active real-time previewMode setting
-    const docId = previewMode === "draft" ? "content_catalog_draft" : "content_catalog_published";
-    const docRef = doc(db, "admin_settings", docId);
-    const unsubscribe = onSnapshot(docRef, (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        if (data && data.records && data.records.menu_items) {
-          const recordsList = data.records.menu_items;
-          const mapped = recordsList.map((rec: any) => ({
-            id: rec.id || String(Math.random()),
-            name: rec.name || rec.title || "Dish",
-            description: rec.description || "",
-            price: rec.price || "₦0",
-            categories: Array.isArray(rec.categories) 
-              ? rec.categories 
-              : (rec.categories ? String(rec.categories).split(",").map(c => c.trim()) : []),
-            dietary: {
-              isVegetarian: rec.isVegetarian || false,
-              isKidsFriendly: rec.isKidsFriendly || false,
-              isSpicy: rec.isSpicy || false,
-              isMild: rec.isMild || false,
-              isVegan: rec.isVegan || false,
-              isGlutenFree: rec.isGlutenFree || false,
-              hasNuts: rec.hasNuts || false
-            },
-            image: rec.image || "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&q=80",
-            ...rec
-          }));
-          setMenuList(mapped);
-        }
-        if (data && data.tables && data.tables.menu_items) {
-          setCatalogFields(data.tables.menu_items.fields || []);
-        }
-      } else {
-        // Fallback to local cached compiled structure
-        const cached = localStorage.getItem("ona_mock_content_catalog");
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed && parsed.records && parsed.records.menu_items) {
-            setMenuList(parsed.records.menu_items);
-            if (parsed.tables && parsed.tables.menu_items) {
-              setCatalogFields(parsed.tables.menu_items.fields || []);
-            }
-          }
-        }
-      }
-    }, (error) => {
-      console.warn("Could not load real-time content catalog:", error);
-    });
+  const docId = previewMode === "draft" ? "content_catalog_draft" : "content_catalog_published";
+  const catalogData = useQuery(api.settings.getByKey, { key: docId });
 
-    return () => unsubscribe();
-  }, []);
+  useEffect(() => {
+    if (catalogData && catalogData.success && catalogData.data) {
+      const data = catalogData.data;
+      if (data && data.records && data.records.menu_items) {
+        const recordsList = data.records.menu_items;
+        const mapped = recordsList.map((rec: any) => ({
+          id: rec.id || String(Math.random()),
+          name: rec.name || rec.title || "Dish",
+          description: rec.description || "",
+          price: rec.price || "₦0",
+          categories: Array.isArray(rec.categories) 
+            ? rec.categories 
+            : (rec.categories ? String(rec.categories).split(",").map(c => c.trim()) : []),
+          dietary: {
+            isVegetarian: rec.isVegetarian || false,
+            isKidsFriendly: rec.isKidsFriendly || false,
+            isSpicy: rec.isSpicy || false,
+            isMild: rec.isMild || false,
+            isVegan: rec.isVegan || false,
+            isGlutenFree: rec.isGlutenFree || false,
+            hasNuts: rec.hasNuts || false
+          },
+          image: rec.image || "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&q=80",
+          ...rec
+        }));
+        setMenuList(mapped);
+      }
+      if (data && data.tables && data.tables.menu_items) {
+        setCatalogFields(data.tables.menu_items.fields || []);
+      }
+    }
+  }, [catalogData]);
   
   // Dietary requirement toggles
   const [onlySpicy, setOnlySpicy] = useState(false);

@@ -16,9 +16,10 @@ import {
   ChevronRight,
   UserCheck
 } from "lucide-react";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
-import { db, handleFirestoreError, OperationType } from "../firebase";
 import { OnaLifestyleProduct } from "../types";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+
 
 // Seed data if database is empty or unavailable
 export const DEFAULT_LIFESTYLE_PRODUCTS: OnaLifestyleProduct[] = [
@@ -137,39 +138,19 @@ export default function OnaLifestyleView({ onOpenReservation, cms }: OnaLifestyl
   const [hoveredProductId, setHoveredProductId] = useState<string | null>(null);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
-  // Firestore sync stream
-  useEffect(() => {
-    const collName = "onaLifestyleProducts";
-    const q = query(collection(db, collName), orderBy("displayOrder", "asc"));
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list: OnaLifestyleProduct[] = [];
-      snapshot.forEach((doc) => {
-        list.push({ id: doc.id, ...doc.data() } as OnaLifestyleProduct);
-      });
-      
-      if (list.length > 0) {
-        setProducts(list);
-        localStorage.setItem("ona_lifestyle_products", JSON.stringify(list));
-      } else {
-        // Fallback setting if empty
-        const local = localStorage.getItem("ona_lifestyle_products");
-        if (!local) {
-          localStorage.setItem("ona_lifestyle_products", JSON.stringify(DEFAULT_LIFESTYLE_PRODUCTS));
-          setProducts(DEFAULT_LIFESTYLE_PRODUCTS);
-        }
-      }
-    }, (error) => {
-      try {
-        handleFirestoreError(error, OperationType.LIST, collName);
-      } catch (err) {
-        // Safe offline fallback silently
-        console.warn("Using offline fallback store for lifestyle catalog.");
-      }
-    });
+  const convexProducts = useQuery(api.lifestyle.getProducts);
 
-    return () => unsubscribe();
-  }, []);
+  // Sync with Convex
+  useEffect(() => {
+    if (convexProducts && convexProducts.success && convexProducts.data) {
+      const mapped: OnaLifestyleProduct[] = convexProducts.data.map((p: any) => ({
+        ...p,
+        id: p._id // Ensure compatibility with existing components using .id
+      }));
+      setProducts(mapped);
+      localStorage.setItem("ona_lifestyle_products", JSON.stringify(mapped));
+    }
+  }, [convexProducts]);
 
   // Sync state if localStorage changes
   useEffect(() => {

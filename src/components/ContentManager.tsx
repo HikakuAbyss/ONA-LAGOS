@@ -34,8 +34,10 @@ import {
   Calendar,
   Grid
 } from "lucide-react";
-import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
-import { db } from "../firebase";
+// Convex Hooks & API
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { convexClient } from "../convexClient";
 import { MENU_ITEMS, GALLERY_ITEMS, TESTIMONIALS } from "../types";
 
 // Standard Field definition interface
@@ -238,6 +240,10 @@ const SEED_RECORDS: Record<string, any[]> = {
 };
 
 export default function ContentManager({ currentUser }: { currentUser: any }) {
+  // Convex Hooks
+  const convexCatalogDraft = useQuery(api.settings.getByKey, { key: "content_catalog_draft" });
+  const setSetting = useMutation(api.settings.setByKey);
+
   const [catalog, setCatalog] = useState<CatalogData>({
     tables: DEFAULT_TABLE_DEFS,
     records: SEED_RECORDS
@@ -298,43 +304,36 @@ export default function ContentManager({ currentUser }: { currentUser: any }) {
   // Temporary local uploads simulated state
   const [fieldUploadProgress, setFieldUploadProgress] = useState<Record<string, number>>({});
 
-  // Real-time Firestore sync setup
+  // Real-time Convex sync setup
   useEffect(() => {
-    const docRef = doc(db, "admin_settings", "content_catalog_draft");
-    const unsubscribe = onSnapshot(docRef, (snap) => {
-      if (snap.exists()) {
-        const data = snap.data() as CatalogData;
+    if (convexCatalogDraft) {
+      if (convexCatalogDraft.success && convexCatalogDraft.data) {
+        const data = convexCatalogDraft.data as CatalogData;
         setCatalog(data);
         setDraftCatalog(data);
       } else {
         // Fallback or seed draft document
         const initialCatalog = { tables: DEFAULT_TABLE_DEFS, records: SEED_RECORDS };
-        setDoc(docRef, initialCatalog).catch(e => console.warn(e));
         setCatalog(initialCatalog);
         setDraftCatalog(initialCatalog);
       }
       setLoading(false);
-    }, (err) => {
-      console.warn("Could not synchronize Content Catalog Draft:", err);
-      // Fallback local persistence
-      const saved = localStorage.getItem("ona_mock_content_catalog_draft");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setCatalog(parsed);
-        setDraftCatalog(parsed);
-      }
-      setLoading(false);
-    });
+    }
+  }, [convexCatalogDraft]);
 
-    // Obtain backup published snap
-    const pubRef = doc(db, "admin_settings", "content_catalog_published");
-    getDoc(pubRef).then(snap => {
-      if (snap.exists()) {
-        setPublishedBackup(snap.data() as CatalogData);
+  // Sync published backup on mount
+  useEffect(() => {
+    const fetchPublished = async () => {
+      try {
+        const res = await convexClient.query(api.settings.getByKey, { key: "content_catalog_published" });
+        if (res && res.success && res.data) {
+          setPublishedBackup(res.data as CatalogData);
+        }
+      } catch (e) {
+        console.warn("Could not query published content catalog from Convex:", e);
       }
-    }).catch(e => console.warn(e));
-
-    return () => unsubscribe();
+    };
+    fetchPublished();
   }, []);
 
   // Show quick status helper
@@ -346,14 +345,14 @@ export default function ContentManager({ currentUser }: { currentUser: any }) {
   // Check if anything has diverged from database schema
   const handleSaveDraft = async (updatedCatalog: CatalogData) => {
     try {
-      await setDoc(doc(db, "admin_settings", "content_catalog_draft"), updatedCatalog);
+      await setSetting({ key: "content_catalog_draft", data: updatedCatalog });
       localStorage.setItem("ona_mock_content_catalog_draft", JSON.stringify(updatedCatalog));
       setDraftCatalog(updatedCatalog);
       setIsModified(true);
       triggerStatus("Draft saved successfully.");
     } catch (e) {
       console.error(e);
-      triggerStatus("Failed to save draft to Firebase Database. Saved locally.", true);
+      triggerStatus("Failed to save draft to Convex. Saved locally.", true);
       localStorage.setItem("ona_mock_content_catalog_draft", JSON.stringify(updatedCatalog));
     }
   };
@@ -364,8 +363,8 @@ export default function ContentManager({ currentUser }: { currentUser: any }) {
       return;
     }
     try {
-      await setDoc(doc(db, "admin_settings", "content_catalog_published"), catalog);
-      await setDoc(doc(db, "admin_settings", "content_catalog_draft"), catalog);
+      await setSetting({ key: "content_catalog_published", data: catalog });
+      await setSetting({ key: "content_catalog_draft", data: catalog });
       
       // Store in standard active published config and fire dispatch trigger
       localStorage.setItem("ona_mock_content_catalog", JSON.stringify(catalog));
@@ -377,7 +376,7 @@ export default function ContentManager({ currentUser }: { currentUser: any }) {
       triggerStatus("Content catalog published live to user screens immediately!");
     } catch (e) {
       console.error(e);
-      triggerStatus("Failed to publish live to Firestore. Local override dispatched.", true);
+      triggerStatus("Failed to publish live to Convex. Local override dispatched.", true);
       localStorage.setItem("ona_mock_content_catalog", JSON.stringify(catalog));
       window.dispatchEvent(new Event("ona_content_catalog_updated"));
     }

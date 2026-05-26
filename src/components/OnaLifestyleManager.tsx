@@ -28,16 +28,8 @@ import {
   ArrowLeft,
   ArrowRight
 } from "lucide-react";
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  addDoc, 
-  deleteDoc, 
-  updateDoc, 
-  getDocs 
-} from "firebase/firestore";
-import { db, handleFirestoreError, OperationType } from "../firebase";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { OnaLifestyleProduct } from "../types";
 import { DEFAULT_LIFESTYLE_PRODUCTS } from "./OnaLifestyleView";
 
@@ -50,6 +42,12 @@ interface OnaLifestyleManagerProps {
 }
 
 export default function OnaLifestyleManager({ currentUser }: OnaLifestyleManagerProps) {
+  // Convex Hooks
+  const convexProducts = useQuery(api.lifestyle.getAllProductsAdmin);
+  const createProduct = useMutation(api.lifestyle.createProduct);
+  const updateProduct = useMutation(api.lifestyle.updateProduct);
+  const deleteProduct = useMutation(api.lifestyle.deleteProduct);
+
   const [products, setProducts] = useState<OnaLifestyleProduct[]>(() => {
     // Initial loading from localStorage (shared fallback)
     const local = localStorage.getItem("ona_lifestyle_products");
@@ -62,6 +60,18 @@ export default function OnaLifestyleManager({ currentUser }: OnaLifestyleManager
     }
     return DEFAULT_LIFESTYLE_PRODUCTS;
   });
+
+  // Sync products reactively from Convex
+  useEffect(() => {
+    if (convexProducts && convexProducts.success && convexProducts.data) {
+      const mapped = convexProducts.data.map((p: any) => ({
+        ...p,
+        id: p._id // Map _id to id for frontend compatibility
+      }));
+      setProducts(mapped);
+      localStorage.setItem("ona_lifestyle_products", JSON.stringify(mapped));
+    }
+  }, [convexProducts]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
@@ -218,43 +228,19 @@ export default function OnaLifestyleManager({ currentUser }: OnaLifestyleManager
     });
 
     try {
-      await updateDoc(doc(db, "onaLifestyleProducts", quickGalleryProduct.id), {
+      await updateProduct({
+        id: quickGalleryProduct.id as any,
         imageUrl: quickFeaturedImage,
         featuredImage: quickFeaturedImage,
-        galleryImages: quickGalleryImages,
-        updatedAt: new Date().toISOString()
+        galleryImages: quickGalleryImages
       });
     } catch (err) {
-      console.warn("Firestore save deferred", err);
+      console.warn("Convex save deferred", err);
     }
 
     saveStateToStorage(updated);
     setQuickGalleryProduct(null);
   };
-
-  // Load from database if possible
-  const syncProductsFromDB = async () => {
-    try {
-      const collRef = collection(db, "onaLifestyleProducts");
-      const snap = await getDocs(collRef);
-      const list: OnaLifestyleProduct[] = [];
-      snap.forEach(d => {
-        list.push({ id: d.id, ...d.data() } as OnaLifestyleProduct);
-      });
-      if (list.length > 0) {
-        // Sort display order
-        list.sort((a, b) => a.displayOrder - b.displayOrder);
-        setProducts(list);
-        localStorage.setItem("ona_lifestyle_products", JSON.stringify(list));
-      }
-    } catch (e) {
-      console.warn("Could not retrieve Firestore products, using local state store.", e);
-    }
-  };
-
-  useEffect(() => {
-    syncProductsFromDB();
-  }, []);
 
   // Save changes wrapper
   const saveStateToStorage = (updatedList: OnaLifestyleProduct[]) => {
@@ -418,17 +404,27 @@ export default function OnaLifestyleManager({ currentUser }: OnaLifestyleManager
     const docId = editingItem ? editingItem.id : `lf_${Date.now()}`;
 
     try {
-      // 1. Write to database
-      await setDoc(doc(db, "onaLifestyleProducts", docId), productPayload);
+      if (editingItem) {
+        await updateProduct({
+          id: editingItem.id as any,
+          ...productPayload,
+          featuredImage: productPayload.imageUrl,
+        });
+      } else {
+        const res = await createProduct({
+          ...productPayload,
+          featuredImage: productPayload.imageUrl,
+        });
+        if (res && res.success && res.data) {
+          updatedList.push({ id: res.data, ...productPayload });
+        }
+      }
     } catch (err) {
-      console.warn("Offline fallback triggered for write operations.");
+      console.warn("Convex write deferred.", err);
     }
 
-    // 2. Parallel state update
     if (editingItem) {
       updatedList = products.map(p => p.id === editingItem.id ? { id: editingItem.id, ...productPayload } : p);
-    } else {
-      updatedList.push({ id: docId, ...productPayload });
     }
 
     saveStateToStorage(updatedList);
@@ -451,12 +447,13 @@ export default function OnaLifestyleManager({ currentUser }: OnaLifestyleManager
     };
 
     try {
-      await setDoc(doc(db, "onaLifestyleProducts", newId), {
+      const res = await createProduct({
         name: duplicated.name,
         slug: duplicated.slug + "-copy",
         category: duplicated.category,
         description: duplicated.description,
         imageUrl: duplicated.imageUrl,
+        featuredImage: duplicated.imageUrl,
         galleryImages: duplicated.galleryImages || [],
         price: duplicated.price,
         discountPrice: duplicated.discountPrice,
@@ -469,10 +466,11 @@ export default function OnaLifestyleManager({ currentUser }: OnaLifestyleManager
         ctaType: duplicated.ctaType,
         ctaLink: duplicated.ctaLink,
         seoTitle: duplicated.seoTitle,
-        seoDescription: duplicated.seoDescription,
-        createdAt: duplicated.createdAt,
-        updatedAt: duplicated.updatedAt
+        seoDescription: duplicated.seoDescription
       });
+      if (res && res.success && res.data) {
+        duplicated.id = res.data;
+      }
     } catch (err) {}
 
     saveStateToStorage([...products, duplicated]);
@@ -488,7 +486,7 @@ export default function OnaLifestyleManager({ currentUser }: OnaLifestyleManager
     }
 
     try {
-      await deleteDoc(doc(db, "onaLifestyleProducts", id));
+      await deleteProduct({ id: id as any });
     } catch (err) {}
 
     saveStateToStorage(products.filter(p => p.id !== id));
@@ -504,9 +502,9 @@ export default function OnaLifestyleManager({ currentUser }: OnaLifestyleManager
       item.publishStatus === "Published" ? "Unpublished" : "Published";
 
     try {
-      await updateDoc(doc(db, "onaLifestyleProducts", item.id), {
-        publishStatus: nextStatus,
-        updatedAt: new Date().toISOString()
+      await updateProduct({
+        id: item.id as any,
+        publishStatus: nextStatus
       });
     } catch (err) {}
 
@@ -520,9 +518,9 @@ export default function OnaLifestyleManager({ currentUser }: OnaLifestyleManager
 
     const nextFeatured = !item.featured;
     try {
-      await updateDoc(doc(db, "onaLifestyleProducts", item.id), {
-        featured: nextFeatured,
-        updatedAt: new Date().toISOString()
+      await updateProduct({
+        id: item.id as any,
+        featured: nextFeatured
       });
     } catch (err) {}
 
@@ -534,9 +532,9 @@ export default function OnaLifestyleManager({ currentUser }: OnaLifestyleManager
     if (!canEdit) return;
 
     try {
-      await updateDoc(doc(db, "onaLifestyleProducts", item.id), {
-        displayOrder: newOrder,
-        updatedAt: new Date().toISOString()
+      await updateProduct({
+        id: item.id as any,
+        displayOrder: newOrder
       });
     } catch (err) {}
 
@@ -551,9 +549,9 @@ export default function OnaLifestyleManager({ currentUser }: OnaLifestyleManager
     const status: OnaLifestyleProduct["publishStatus"] = publish ? "Published" : "Unpublished";
     for (const id of selectedIds) {
       try {
-        await updateDoc(doc(db, "onaLifestyleProducts", id), {
-          publishStatus: status,
-          updatedAt: new Date().toISOString()
+        await updateProduct({
+          id: id as any,
+          publishStatus: status
         });
       } catch (err) {}
     }
@@ -573,7 +571,7 @@ export default function OnaLifestyleManager({ currentUser }: OnaLifestyleManager
 
     for (const id of selectedIds) {
       try {
-        await deleteDoc(doc(db, "onaLifestyleProducts", id));
+        await deleteProduct({ id: id as any });
       } catch (err) {}
     }
 

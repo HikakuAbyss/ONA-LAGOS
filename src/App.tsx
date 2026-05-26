@@ -48,6 +48,12 @@ import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { DEFAULT_CMS } from "./components/WebsiteCustomizer";
 import AuthModal from "./components/AuthModal";
 
+// Convex Hooks & Client
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../convex/_generated/api";
+import { convexClient } from "./convexClient";
+
+
 export default function App() {
   const [currentTab, setCurrentTab] = useState<string>("home");
   const [cms, setCms] = useState<any>(() => {
@@ -55,6 +61,10 @@ export default function App() {
     return saved ? JSON.parse(saved) : DEFAULT_CMS;
   });
   const [initialLoading, setInitialLoading] = useState(true);
+
+  // Convex Client hooks for CMS and User updates
+  const convexCms = useQuery(api.settings.getByKey, { key: "cms_config" });
+  const upsertProfile = useMutation(api.users.upsertProfile);
 
   // Favicon, Title and Load Animation timer
   useEffect(() => {
@@ -86,43 +96,28 @@ export default function App() {
     };
     window.addEventListener("ona_cms_updated", handleCmsUpdateEvent);
 
-    const docRef = doc(db, "admin_settings", "cms_config");
-    const unsubscribe = onSnapshot(docRef, (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        const merged = {
-          ...DEFAULT_CMS,
-          ...data,
-          branding: { ...DEFAULT_CMS.branding, ...(data.branding || {}) },
-          colors: { ...DEFAULT_CMS.colors, ...(data.colors || {}) },
-          typography: { ...DEFAULT_CMS.typography, ...(data.typography || {}) },
-          hero: { ...DEFAULT_CMS.hero, ...(data.hero || {}) },
-          homepageSections: data.homepageSections || DEFAULT_CMS.homepageSections,
-          navigation: { ...DEFAULT_CMS.navigation, ...(data.navigation || {}) },
-          socials: { ...DEFAULT_CMS.socials, ...(data.socials || {}) },
-          contact: { ...DEFAULT_CMS.contact, ...(data.contact || {}) },
-        };
-        setCms(merged);
-        localStorage.setItem("ona_mock_cms_config", JSON.stringify(merged));
-      } else {
-        const saved = localStorage.getItem("ona_mock_cms_config");
-        if (!saved) {
-          setCms(DEFAULT_CMS);
-        }
-      }
-    }, (err) => {
-      console.warn("Could not load published CMS, fallback:", err);
-      const saved = localStorage.getItem("ona_mock_cms_config");
-      if (!saved) {
-        setCms(DEFAULT_CMS);
-      }
-    });
+    if (convexCms && convexCms.success && convexCms.data) {
+      const data = convexCms.data;
+      const merged = {
+        ...DEFAULT_CMS,
+        ...data,
+        branding: { ...DEFAULT_CMS.branding, ...(data.branding || {}) },
+        colors: { ...DEFAULT_CMS.colors, ...(data.colors || {}) },
+        typography: { ...DEFAULT_CMS.typography, ...(data.typography || {}) },
+        hero: { ...DEFAULT_CMS.hero, ...(data.hero || {}) },
+        homepageSections: data.homepageSections || DEFAULT_CMS.homepageSections,
+        navigation: { ...DEFAULT_CMS.navigation, ...(data.navigation || {}) },
+        socials: { ...DEFAULT_CMS.socials, ...(data.socials || {}) },
+        contact: { ...DEFAULT_CMS.contact, ...(data.contact || {}) },
+      };
+      setCms(merged);
+      localStorage.setItem("ona_mock_cms_config", JSON.stringify(merged));
+    }
 
     return () => {
-      unsubscribe();
       window.removeEventListener("ona_cms_updated", handleCmsUpdateEvent);
     };
-  }, []);
+  }, [convexCms]);
 
   const [isReservationOpen, setIsReservationOpen] = useState(false);
   const [reservationType, setReservationType] = useState("Standard Dining");
@@ -186,6 +181,18 @@ export default function App() {
       
       setCurrentUser(fbUser);
       if (fbUser) {
+        // Set Convex authentication token
+        convexClient.setAuth(async () => {
+          return await fbUser.getIdToken();
+        });
+
+        // Sync profile to Convex
+        try {
+          await upsertProfile({ name: fbUser.displayName || fbUser.email?.split("@")[0] || "User" });
+        } catch (err) {
+          console.warn("Failed to sync profile to Convex:", err);
+        }
+
         // Retrieve custom roles from users collection or bootstrapped rules
         try {
           const userRef = doc(db, "users", fbUser.uid);
@@ -210,6 +217,8 @@ export default function App() {
           }
         }
       } else {
+        // Clear Convex authentication
+        convexClient.clearAuth();
         setUserRole("User");
       }
     });
