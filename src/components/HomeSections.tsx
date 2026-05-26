@@ -1,6 +1,8 @@
 import { motion } from "motion/react";
 import { ArrowRight, Star, ChefHat, Wine, Sparkles, MapPin, Clock, Phone, Instagram } from "lucide-react";
 import { MENU_ITEMS, GALLERY_ITEMS, TESTIMONIALS } from "../types";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 
 interface HomeSectionsProps {
   cms: any;
@@ -125,16 +127,10 @@ export default function HomeSections({
               );
             case "lifestyle":
               {
-                const activeFeaturedLifestyle = (() => {
-                  try {
-                    const local = localStorage.getItem("ona_lifestyle_products");
-                    if (local) {
-                      const parsed = JSON.parse(local);
-                      return parsed.filter((p: any) => p.publishStatus === "Published" && p.featured);
-                    }
-                  } catch (e) {}
-                  return [];
-                })();
+                const convexProducts = useQuery(api.lifestyle.getProducts);
+                const activeFeaturedLifestyle = (convexProducts && convexProducts.success && convexProducts.data)
+                  ? (convexProducts.data as any[]).filter((p: any) => p.featured).map((p: any) => ({ ...p, id: p._id }))
+                  : [];
 
                 return (
                   <section id="lifestyle-section" key={sec.id} className="max-w-7xl mx-auto px-6 md:px-12 py-20 border-b border-gold-400/10 space-y-12 bg-root-custom text-left">

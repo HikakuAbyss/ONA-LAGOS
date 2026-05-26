@@ -1517,13 +1517,19 @@ export default function ContentManager({ currentUser }: { currentUser: any }) {
 // Reset trigger definitions
 export function handleResetToDefault() {
   if (window.confirm("Confirm: Reinitialize the database back to standard default menu lists and core aesthetic settings? Wait, draft values are completely replaced.")) {
-    setDoc(doc(db, "admin_settings", "content_catalog_draft"), {
-      tables: DEFAULT_TABLE_DEFS,
-      records: SEED_RECORDS
+    convexClient.mutation(api.settings.setByKey, {
+      key: "content_catalog_draft",
+      data: {
+        tables: DEFAULT_TABLE_DEFS,
+        records: SEED_RECORDS
+      }
     }).catch(err => console.error(err));
-    setDoc(doc(db, "admin_settings", "content_catalog_published"), {
-      tables: DEFAULT_TABLE_DEFS,
-      records: SEED_RECORDS
+    convexClient.mutation(api.settings.setByKey, {
+      key: "content_catalog_published",
+      data: {
+        tables: DEFAULT_TABLE_DEFS,
+        records: SEED_RECORDS
+      }
     }).catch(err => console.error(err));
     localStorage.setItem("ona_mock_content_catalog_draft", JSON.stringify({ tables: DEFAULT_TABLE_DEFS, records: SEED_RECORDS }));
     localStorage.setItem("ona_mock_content_catalog", JSON.stringify({ tables: DEFAULT_TABLE_DEFS, records: SEED_RECORDS }));

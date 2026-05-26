@@ -52,6 +52,12 @@ export default function ExploreLegacyWidget({
       icon: GlassWater
     },
     {
+      id: "ona-lifestyle",
+      label: "ONA Lifestyle Store",
+      desc: "Premium merchandise, gift items & fine accessories",
+      icon: Compass
+    },
+    {
       id: "events",
       label: "Bespoke Private Events",
       desc: "Birthdays, film setups & underground cellar bookings",
