@@ -1581,24 +1581,43 @@ export default function WebsiteCustomizer({ currentUser }: WebsiteCustomizerProp
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border border-[#CBBDA9]/20 p-4 rounded-xs">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] tracking-wider uppercase text-gray-500 font-bold">Hero Background Image</label>
-                      <button
-                        onClick={() => handleSelectFieldForMedia("hero", "backgroundImage")}
-                        className="text-[9px] uppercase font-bold tracking-wider text-[#8C6D4F]"
-                      >
-                        Select from Library
-                      </button>
-                    </div>
-                    <input
-                      type="text"
-                      value={settings.hero.backgroundImage}
-                      onChange={e => updateField("hero", "backgroundImage", e.target.value)}
-                      className="w-full bg-white p-2 border border-[#CBBDA9]/40 font-mono text-[11px]"
-                      placeholder="e.g. Unsplash URL..."
-                    />
-                  </div>
+                   <div className="space-y-1.5">
+                     <div className="flex items-center justify-between">
+                       <label className="text-[10px] tracking-wider uppercase text-gray-500 font-bold">Hero Background Image</label>
+                       <button
+                         onClick={() => handleSelectFieldForMedia("hero", "backgroundImage")}
+                         className="text-[9px] uppercase font-bold tracking-wider text-[#8C6D4F]"
+                       >
+                         Select from Library
+                       </button>
+                     </div>
+                     <div className="flex gap-2">
+                       <input
+                         type="text"
+                         value={settings.hero.backgroundImage}
+                         onChange={e => updateField("hero", "backgroundImage", e.target.value)}
+                         className="flex-grow bg-white p-2 border border-[#CBBDA9]/40 font-mono text-[11px] focus:outline-none"
+                         placeholder="e.g. Unsplash URL... (or upload file)"
+                       />
+                       <div className="relative border border-dashed border-[#CBBDA9]/60 hover:border-[#8C6D4F] transition cursor-pointer px-3 flex items-center justify-center bg-white min-w-[70px]">
+                         <input
+                           type="file"
+                           accept="image/*"
+                           onChange={e => {
+                             if (e.target.files?.[0]) {
+                               const reader = new FileReader();
+                               reader.onload = (ev) => {
+                                 updateField("hero", "backgroundImage", ev.target?.result as string);
+                               };
+                               reader.readAsDataURL(e.target.files[0]);
+                             }
+                           }}
+                           className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                         />
+                         <span className="text-[9px] uppercase font-bold text-[#8C6D4F]">Upload</span>
+                       </div>
+                     </div>
+                   </div>
 
                   <div className="space-y-1.5">
                     <label className="text-[10px] tracking-wider uppercase text-gray-500 block font-bold">Hero Video Loop (URL)</label>
@@ -1694,20 +1713,69 @@ export default function WebsiteCustomizer({ currentUser }: WebsiteCustomizerProp
 
                       {sec.visible && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                          <input
-                            type="text"
-                            value={sec.heading}
-                            onChange={e => handleSectionTextChange(sec.id, "heading", e.target.value)}
-                            className="bg-[#FAF6F0] p-1.5 border border-[#CBBDA9]/40 outline-none text-[11px]"
-                            placeholder="Heading label"
-                          />
-                          <input
-                            type="text"
-                            value={sec.description}
-                            onChange={e => handleSectionTextChange(sec.id, "description", e.target.value)}
-                            className="bg-[#FAF6F0] p-1.5 border border-[#CBBDA9]/40 outline-none text-[11px]"
-                            placeholder="Brief snippet text"
-                          />
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-bold text-gray-400">Heading label</label>
+                            <input
+                              type="text"
+                              value={sec.heading}
+                              onChange={e => handleSectionTextChange(sec.id, "heading", e.target.value)}
+                              className="w-full bg-[#FAF6F0] p-1.5 border border-[#CBBDA9]/40 outline-none text-[11px]"
+                              placeholder="Heading label"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-bold text-gray-400">Brief snippet text</label>
+                            <input
+                              type="text"
+                              value={sec.description}
+                              onChange={e => handleSectionTextChange(sec.id, "description", e.target.value)}
+                              className="w-full bg-[#FAF6F0] p-1.5 border border-[#CBBDA9]/40 outline-none text-[11px]"
+                              placeholder="Brief snippet text"
+                            />
+                          </div>
+                          <div className="md:col-span-2 space-y-1">
+                            <label className="text-[9px] uppercase font-bold text-gray-400">Background Image (URL or Upload)</label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={sec.bgImage || ""}
+                                onChange={e => {
+                                  setSettings(prev => ({
+                                    ...prev,
+                                    homepageSections: prev.homepageSections.map(s => {
+                                      if (s.id === sec.id) return { ...s, bgImage: e.target.value };
+                                      return s;
+                                    })
+                                  }));
+                                }}
+                                className="flex-grow bg-[#FAF6F0] p-1.5 border border-[#CBBDA9]/40 outline-none text-[11px] font-mono focus:outline-none"
+                                placeholder="Image URL..."
+                              />
+                              <div className="relative border border-dashed border-[#CBBDA9]/60 hover:border-[#8C6D4F] transition cursor-pointer px-3 flex items-center justify-center bg-white min-w-[70px]">
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={e => {
+                                    if (e.target.files?.[0]) {
+                                      const reader = new FileReader();
+                                      reader.onload = (ev) => {
+                                        setSettings(prev => ({
+                                          ...prev,
+                                          homepageSections: prev.homepageSections.map(s => {
+                                            if (s.id === sec.id) return { ...s, bgImage: ev.target?.result as string };
+                                            return s;
+                                          })
+                                        }));
+                                      };
+                                      reader.readAsDataURL(e.target.files[0]);
+                                    }
+                                  }}
+                                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                />
+                                <span className="text-[9px] uppercase font-bold text-[#8C6D4F]">Upload</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1788,6 +1856,36 @@ export default function WebsiteCustomizer({ currentUser }: WebsiteCustomizerProp
                         {style}
                       </button>
                     ))}
+                  </div>
+                </div>
+
+                <div className="md:col-span-2 space-y-1.5 border border-[#CBBDA9]/20 p-4 bg-white rounded-xs mt-2">
+                  <label className="text-[10px] tracking-wider uppercase text-gray-500 font-bold block">Menu Page Background Image</label>
+                  <div className="flex gap-2 mt-2">
+                    <input
+                      type="text"
+                      value={settings.menuAppearance.bgImage || ""}
+                      onChange={e => setSettings(prev => ({ ...prev, menuAppearance: { ...prev.menuAppearance, bgImage: e.target.value } }))}
+                      className="flex-grow bg-[#FAF6F0] p-2 border border-[#CBBDA9]/40 font-mono text-[11px] focus:outline-none"
+                      placeholder="e.g. Background image URL..."
+                    />
+                    <div className="relative border border-dashed border-[#CBBDA9]/60 hover:border-[#8C6D4F] transition cursor-pointer px-3 flex items-center justify-center bg-white min-w-[70px]">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={e => {
+                          if (e.target.files?.[0]) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              setSettings(prev => ({ ...prev, menuAppearance: { ...prev.menuAppearance, bgImage: ev.target?.result as string } }));
+                            };
+                            reader.readAsDataURL(e.target.files[0]);
+                          }
+                        }}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                      />
+                      <span className="text-[9px] uppercase font-bold text-[#8C6D4F]">Upload</span>
+                    </div>
                   </div>
                 </div>
               </div>
